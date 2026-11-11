@@ -189,11 +189,11 @@ public final class CameraWall extends LinearLayout {
                     public void onPlayerError(androidx.media3.common.PlaybackException error) {
                         Log.e("CameraWall", "Canal " + channel
                                 + ": error Media3 " + error.errorCode
-                                + " (" + error.errorCodeName + ")");
+                                + " (código numérico)");
 
                         status.post(() -> {
                             status.setText("Error de reproducción en cámara " + channel
-                                    + ". Código: " + error.errorCodeName);
+                                    + ". Código: " + error.errorCode);
                             status.setVisibility(VISIBLE);
                         });
                     }
