@@ -289,7 +289,7 @@ final class AppLibraryDialog {
         if (!selectionMode) {
             String saved = activity.getSharedPreferences(ORDER_PREFS, Activity.MODE_PRIVATE).getString(ORDER_KEY, "");
             if (!saved.isEmpty()) {
-                String[] keys = saved.split("\\\\|");
+                String[] keys = saved.split("\\|");
                 for (int i = 0; i < keys.length; i++) savedOrder.put(keys[i], i);
             }
         }
