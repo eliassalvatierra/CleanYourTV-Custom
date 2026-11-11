@@ -191,6 +191,26 @@ public final class CameraWall extends LinearLayout {
                                 + ": error Media3 " + error.errorCode
                                 + " (código numérico)");
 
+                        // Log the exception chain to identify the RTSP/I/O failure.
+                        // Redact credentials in case a library message contains the URI.
+                        Throwable cause = error;
+                        int causeLevel = 0;
+                        while (cause != null && causeLevel < 5) {
+                            String detail = cause.getClass().getSimpleName();
+                            String message = cause.getMessage();
+                            if (message != null) {
+                                message = message.replace(user, "[usuario]")
+                                        .replace(pass, "[clave]")
+                                        .replace(Uri.encode(user), "[usuario]")
+                                        .replace(Uri.encode(pass), "[clave]");
+                                detail += ": " + message;
+                            }
+                            Log.e("CameraWall", "Canal " + channel
+                                    + ": causa " + causeLevel + " - " + detail);
+                            cause = cause.getCause();
+                            causeLevel++;
+                        }
+
                         status.post(() -> {
                             status.setText("Error de reproducción en cámara " + channel
                                     + ". Código: " + error.errorCode);
