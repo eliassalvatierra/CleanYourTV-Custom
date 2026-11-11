@@ -62,8 +62,13 @@ public final class CameraWall extends LinearLayout {
         settings.setTextSize(11);
         settings.setAllCaps(false);
         settings.setOnClickListener(v -> showSetup());
-        heading.addView(settings, new LayoutParams(LayoutParams.WRAP_CONTENT, dp(28)));
-        addView(heading, new LayoutParams(LayoutParams.MATCH_PARENT, dp(30)));
+        settings.setMinHeight(0);
+        settings.setMinWidth(0);
+        settings.setPadding(dp(10), 0, dp(10), 0);
+        settings.setIncludeFontPadding(false);
+        heading.addView(settings, new LayoutParams(LayoutParams.WRAP_CONTENT, dp(30)));
+        settings.setTranslationY(-dp(3));
+        addView(heading, new LayoutParams(LayoutParams.MATCH_PARENT, dp(34)));
 
         LinearLayout row1 = new LinearLayout(context);
         LinearLayout row2 = new LinearLayout(context);
