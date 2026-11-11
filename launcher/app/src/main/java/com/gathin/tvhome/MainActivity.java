@@ -478,7 +478,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         applyViewInputsHandler(cfg.handleViewInputs);
         settingsKeycodes = cfg.settingsKeycodes;
         settingsKeyPanel = cfg.settingsKeyPanel;
-        COLUMNS = cfg.columns;
+        // The camera-first home reserves a narrow right rail for apps: use two readable columns
+        // unless a theme explicitly uses the single-row layout or a dedicated dock row.
+        COLUMNS = (cfg.singleRow || cfg.dockRow) ? cfg.columns : 2;
         animations = cfg.animations;
         advancedEffects = cfg.animations && cfg.advancedEffects;
         reducedMotion = cfg.reducedMotion;
