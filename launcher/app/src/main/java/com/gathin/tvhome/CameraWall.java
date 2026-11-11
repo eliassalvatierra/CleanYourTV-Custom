@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.text.InputType;
+import android.util.AttributeSet;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.EditText;
@@ -28,6 +29,10 @@ public final class CameraWall extends LinearLayout {
     private final ExoPlayer[] players = new ExoPlayer[4];
     private final TextView status;
     private boolean released;
+
+    public CameraWall(Context context, AttributeSet attrs) {
+        this(context);
+    }
 
     public CameraWall(Context context) {
         super(context);
