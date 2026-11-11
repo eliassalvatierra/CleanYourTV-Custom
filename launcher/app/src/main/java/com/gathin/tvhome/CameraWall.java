@@ -25,7 +25,7 @@ import androidx.media3.ui.PlayerView;
 public final class CameraWall extends LinearLayout {
     private static final String PREFS = "local_camera_wall";
     private static final String KEY_HOST = "host", KEY_USER = "user", KEY_PASS = "pass";
-    private static final String[] CHANNELS = {"102", "202", "302", "402"};
+    private static final String[] CHANNELS = {"102", "302", "502", "702"};
     private final PlayerView[] surfaces = new PlayerView[4];
     private final ExoPlayer[] players = new ExoPlayer[4];
     private final TextView status;
@@ -126,7 +126,7 @@ public final class CameraWall extends LinearLayout {
         form.addView(pass);
         new AlertDialog.Builder(getContext())
                 .setTitle("Conexión Hikvision")
-                .setMessage("Se usarán los substreams RTSP de los canales 1 a 4 por la red local.")
+                .setMessage("Se usarán los substreams RTSP de los canales 1, 3, 5 y 7 por la red local.")
                 .setView(form)
                 .setNegativeButton("Cancelar", null)
                 .setNeutralButton("Borrar", (dialog, which) -> {
