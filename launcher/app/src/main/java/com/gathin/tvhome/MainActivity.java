@@ -619,7 +619,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rtlAppGrid = getResources().getBoolean(R.bool.rtl_app_grid);
         // Mirror only the app grid; the header and other locales keep their own layouts.
         // single_row: one span laid out sideways, so the same adapter, glass and dock band serve a scrolling row.
-        grid.setLayoutManager(new GridLayoutManager(this, singleRow ? 1 : COLUMNS,
+        // In the camera-first home layout, keep app tiles readable in the right-side rail.
+        // Preserve the original column count when the dock row or single-row mode is enabled.
+        final int appGridSpanCount = singleRow ? 1 : (dockRow ? COLUMNS : 2);
+        grid.setLayoutManager(new GridLayoutManager(this, appGridSpanCount,
                 singleRow ? RecyclerView.HORIZONTAL : RecyclerView.VERTICAL, false) {
             @Override
             protected boolean isLayoutRTL() {
@@ -672,7 +675,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         ((GridLayoutManager) grid.getLayoutManager()).setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
-            @Override public int getSpanSize(int position) { return !singleRow && adapter != null && adapter.isLibraryAt(position) ? COLUMNS : 1; }
+            @Override public int getSpanSize(int position) {
+                return !singleRow && adapter != null && adapter.isLibraryAt(position) ? appGridSpanCount : 1;
+            }
         });
         grid.setHasFixedSize(true);
         grid.setItemAnimator(null);
