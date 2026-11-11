@@ -1,0 +1,36 @@
+﻿77: import androidx.recyclerview.widget.GridLayoutManager;
+111: /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
+122: /** Launcher settings' change count this Home was built with (see onResume). */
+321: * Between onResume and onPause: Home is in front. The idle clock only runs then; a key's ACTION_UP can still
+322: * reach Home after onPause, when that key opened another app, and must not start the clock over the app.
+329: /** The Inputs or Module cards dropdown while one is open, so onPause can close it. */
+418: // In the background this only marks the tiles stale; onResume rebuilds them once.
+450: /** clock_format, for the race panel's session times (the TextClocks take it in onCreate). */
+455: protected void onCreate(Bundle savedInstanceState) {
+456: super.onCreate(savedInstanceState);
+457: setContentView(R.layout.activity_main);
+615: grid.setLayoutManager(new GridLayoutManager(this, singleRow ? 1 : COLUMNS,
+667: ((GridLayoutManager) grid.getLayoutManager()).setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+697: grid.setAdapter(adapter);
+997: // onPause() closes popups, so open the menu once that has run (HiSmartTV A4, Android TV 9).
+1043: * Home pressed while Home is already in front: singleTask delivers it here, then onResume runs.
+1083: protected void onResume() {
+1084: super.onResume();
+1100: if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
+1101: switch (tileRefresh.onResume(packagesChangedSinceRebuild())) {
+1146: /** Launcher settings' change count (Config.SETTINGS_REVISION_KEY); onResume rebuilds Home when it moved. */
+1153: * reloaded) and then enters reorder mode. Every other change is picked up in onResume through the change count.
+1161: // The old activity must not consume the pending action, or rebuild a second time in onResume.
+1299: protected void onPause() {
+1300: super.onPause();
+1351: // they hold) would stay attached until Home comes back. setAdapter(null) recycles them now.
+1352: grid.setAdapter(null);
+1423: // "hold:" entries run here too or nowhere. Only while resumed: onPause releases Home's holds, and a DOWN
+1719: GridLayoutManager lm = (GridLayoutManager) grid.getLayoutManager();
+1963: // onPause cancels the fade-ins, and a second Home during one lands on the same tile, which starts none:
+2427: // stopping at its two ends (the default focus search scrolls the row to the next tile).
+2439: // escapes up into the top bar. Mid-row moves fall through to the default focus search.
+2463: // The default focus search clicks for Left/Right; Up/Down are handled here, so click for them too.
+2904: // from onResume would run first: the frame is only scheduled after onResume returns.
+2974: // onResume, runs before that) getTotalPaddingStart/End leave the compound drawables out, which
+3942: dialog.setContentView(panel);
