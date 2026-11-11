@@ -175,7 +175,7 @@
 
             <LinearLayout
                 android:id="@+id/leftBlock"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
                 android:layout_toStartOf="@+id/topButtons"
@@ -420,7 +420,7 @@
 
             <!-- The app rail is deliberately wide enough for two normal-sized tiles per row. -->
             <FrameLayout
-                android:layout_width="390dp"
+                android:layout_width="360dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="4dp">
 
