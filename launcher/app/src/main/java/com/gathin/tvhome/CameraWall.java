@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.text.InputType;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.EditText;
@@ -150,34 +151,81 @@ public final class CameraWall extends LinearLayout {
 
     public void start() {
         if (released) return;
+
         String host = prefs().getString(KEY_HOST, "").trim();
         String user = prefs().getString(KEY_USER, "");
         String pass = prefs().getString(KEY_PASS, "");
+
         if (host.isEmpty() || user.isEmpty() || pass.isEmpty()) {
             updateStatus();
             return;
         }
+
         for (int i = 0; i < 4; i++) {
             if (players[i] != null) continue;
+
+            final int channel = i + 1;
+            ExoPlayer player = null;
+
             try {
                 Uri uri = new Uri.Builder().scheme("rtsp")
                         .encodedAuthority(Uri.encode(user) + ":" + Uri.encode(pass) + "@" + host + ":554")
-                        .appendPath("Streaming").appendPath("Channels").appendPath(CHANNELS[i]).build();
-                ExoPlayer player = new ExoPlayer.Builder(getContext()).build();
-                player.setMediaSource(new RtspMediaSource.Factory().setForceUseRtpTcp(true)
-                        .createMediaSource(MediaItem.fromUri(uri)));
-                surfaces[i].setPlayer(player);
-                players[i] = player;
-                player.setPlayWhenReady(true);
-                player.prepare();
+                        .appendPath("Streaming")
+                        .appendPath("Channels")
+                        .appendPath(CHANNELS[i])
+                        .build();
+
+                player = new ExoPlayer.Builder(getContext()).build();
+
                 player.addListener(new Player.Listener() {
-                    @Override public void onPlayerError(androidx.media3.common.PlaybackException error) {
-                        status.setText("No se pudo reproducir una cámara. Revisá la ruta RTSP, el usuario y la clave.");
-                        status.setVisibility(VISIBLE);
+                    @Override
+                    public void onPlaybackStateChanged(int playbackState) {
+                        if (playbackState == Player.STATE_READY) {
+                            Log.i("CameraWall", "Canal " + channel + ": reproducción lista");
+                        }
+                    }
+
+                    @Override
+                    public void onPlayerError(androidx.media3.common.PlaybackException error) {
+                        Log.e("CameraWall", "Canal " + channel
+                                + ": error Media3 " + error.errorCode
+                                + " (" + error.errorCodeName + ")");
+
+                        status.post(() -> {
+                            status.setText("Error de reproducción en cámara " + channel
+                                    + ". Código: " + error.errorCodeName);
+                            status.setVisibility(VISIBLE);
+                        });
                     }
                 });
+
+                player.setMediaSource(
+                        new RtspMediaSource.Factory()
+                                .setForceUseRtpTcp(true)
+                                .createMediaSource(MediaItem.fromUri(uri))
+                );
+
+                surfaces[i].setPlayer(player);
+                players[i] = player;
+
+                Log.i("CameraWall", "Iniciando canal " + channel);
+
+                player.setPlayWhenReady(true);
+                player.prepare();
+
             } catch (RuntimeException error) {
-                status.setText("Error al iniciar las cámaras. Revisá la configuración del DVR.");
+                Log.e("CameraWall", "Canal " + channel
+                        + ": error al crear el reproductor ("
+                        + error.getClass().getSimpleName() + ")");
+
+                if (player != null) {
+                    surfaces[i].setPlayer(null);
+                    player.release();
+                }
+
+                players[i] = null;
+
+                status.setText("Error al iniciar la cámara " + channel);
                 status.setVisibility(VISIBLE);
             }
         }
