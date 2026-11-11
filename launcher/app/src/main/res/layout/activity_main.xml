@@ -160,8 +160,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingStart="28dp"
-        android:paddingEnd="28dp"
+        android:paddingStart="22dp"
+        android:paddingEnd="22dp"
         android:paddingTop="14dp"
         android:clipChildren="false"
         android:clipToPadding="false">
@@ -416,11 +416,11 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginEnd="12dp" />
+                android:layout_marginEnd="8dp" />
 
             <!-- The app rail is deliberately wide enough for two normal-sized tiles per row. -->
             <FrameLayout
-                android:layout_width="420dp"
+                android:layout_width="390dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="4dp">
 
