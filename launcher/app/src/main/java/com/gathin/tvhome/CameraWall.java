@@ -32,6 +32,8 @@ public final class CameraWall extends LinearLayout {
     private static final String[] CHANNELS = {"102", "302", "502", "702"};
 
     private final VLCVideoLayout[] surfaces = new VLCVideoLayout[4];
+    private LinearLayout firstRow;
+    private LinearLayout secondRow;
     private final MediaPlayer[] players = new MediaPlayer[4];
     private final TextView status;
     private LibVLC libVLC;
@@ -65,6 +67,10 @@ public final class CameraWall extends LinearLayout {
 
         LinearLayout row1 = new LinearLayout(context);
         LinearLayout row2 = new LinearLayout(context);
+        firstRow = row1;
+        secondRow = row2;
+        row1.setGravity(Gravity.CENTER);
+        row2.setGravity(Gravity.CENTER);
         row1.setOrientation(HORIZONTAL);
         row2.setOrientation(HORIZONTAL);
         addView(row1, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
@@ -74,8 +80,8 @@ public final class CameraWall extends LinearLayout {
             surface.setBackgroundColor(0xFF080B10);
             surface.setFocusable(false);
             surfaces[i] = surface;
-            LayoutParams cell = new LayoutParams(0, LayoutParams.MATCH_PARENT, 1f);
-            cell.setMargins(dp(3), dp(3), dp(3), dp(3));
+            LayoutParams cell = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+            cell.setMargins(dp(4), dp(4), dp(4), dp(4));
             (i < 2 ? row1 : row2).addView(surface, cell);
         }
 
@@ -87,6 +93,28 @@ public final class CameraWall extends LinearLayout {
         status.setBackgroundColor(0xAA080B10);
         addView(status, new LayoutParams(LayoutParams.MATCH_PARENT, dp(30)));
         updateStatus();
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        sizeSquareCells();
+    }
+
+    private void sizeSquareCells() {
+        if (firstRow == null || secondRow == null || getWidth() == 0) return;
+        int availableWidth = Math.max(0, (getWidth() - dp(24)) / 2);
+        int side = Math.min(availableWidth, Math.min(firstRow.getHeight(), secondRow.getHeight()) - dp(8));
+        if (side <= 0) return;
+        for (int i = 0; i < 4; i++) {
+            VLCVideoLayout surface = surfaces[i];
+            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) surface.getLayoutParams();
+            if (params.width != side) {
+                params.width = side;
+                params.height = side;
+                surface.setLayoutParams(params);
+            }
+        }
     }
 
     private int dp(float value) {
