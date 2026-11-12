@@ -305,15 +305,30 @@ public final class CameraWall extends LinearLayout {
     }
 
     public void restart() {
+        if (released) return;
         stop();
         if (libVLC != null) {
             try { libVLC.release(); } catch (RuntimeException ignored) {}
             libVLC = null;
         }
-        // Recreate LibVLC after another app has covered Home: TV devices can invalidate
-        // the native video surfaces while the activity is paused.
+
+        // Rebuild the native SurfaceViews as well as LibVLC. Some Android TV devices
+        // keep the old VLCVideoLayout attached after returning from another Activity,
+        // leaving every stream black even though the RTSP players have restarted.
+        firstRow.removeAllViews();
+        secondRow.removeAllViews();
+        for (int i = 0; i < 4; i++) {
+            VLCVideoLayout surface = new VLCVideoLayout(getContext());
+            surface.setBackgroundColor(0xFF080B10);
+            surface.setFocusable(false);
+            surfaces[i] = surface;
+            LayoutParams cell = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+            cell.setMargins(dp(2), dp(2), dp(2), dp(2));
+            (i < 2 ? firstRow : secondRow).addView(surface, cell);
+        }
+        requestLayout();
         removeCallbacks(startRunnable);
-        postDelayed(startRunnable, 650);
+        postDelayed(startRunnable, 900);
     }
 
     public void stop() {
