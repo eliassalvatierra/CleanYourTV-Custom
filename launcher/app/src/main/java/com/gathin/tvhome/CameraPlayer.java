@@ -1,36 +1,33 @@
 package com.gathin.tvhome;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.TextureView;
-
 import android.util.Log;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
-import androidx.media3.common.VideoSize;
-import androidx.media3.exoplayer.DefaultLoadControl;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.rtsp.RtspMediaSource;
+
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.util.VLCVideoLayout;
+
+import java.util.ArrayList;
 
 /**
- * One RTSP camera playing into one TextureView. The owner (CameraPanel, CameraFullscreenActivity) creates it when
- * its screen comes to the front and calls release() when it leaves, so a screen that comes back always gets a
- * fresh player and a fresh surface instead of a player still pointing at a surface the system already destroyed.
- * A stream that fails or ends is retried every few seconds until release().
+ * One RTSP camera played by LibVLC. The owner creates the player when its screen comes to the front
+ * and releases it when it leaves. A failed stream is retried until release().
+ *
+ * All camera players share one LibVLC engine; each camera has its own MediaPlayer.
  */
-@SuppressLint("UnsafeOptInUsageError")   // Media3's RTSP and load-control classes are marked unstable API
 final class CameraPlayer {
+    private static final String TAG = "CameraPlayer";
     private static final long RETRY_MS = 6_000L;
 
-    private static final String TAG = "CameraPlayer";
+    private static LibVLC sharedLibVlc;
+    private static int engineUsers;
 
-    /** Reports what the stream is doing: a line for "connecting" or the error, null once the picture runs. */
     interface Status {
         void onStatus(@Nullable CharSequence message);
     }
@@ -38,101 +35,123 @@ final class CameraPlayer {
     private final Context context;
     private final String url;
     private final boolean muted;
-    private final TextureView texture;
-    private final AspectFrame frame;
+    private final VLCVideoLayout videoLayout;
     private final Status status;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private ExoPlayer player;
+
+    private LibVLC libVlc;
+    private MediaPlayer player;
     private boolean released;
 
-    CameraPlayer(Context context, String url, boolean muted, TextureView texture, AspectFrame frame, Status status) {
+    CameraPlayer(Context context, String url, boolean muted, VLCVideoLayout videoLayout,
+                 AspectFrame frame, Status status) {
         this.context = context.getApplicationContext();
         this.url = url;
         this.muted = muted;
-        this.texture = texture;
-        this.frame = frame;
+        this.videoLayout = videoLayout;
         this.status = status;
-        this.listener = createListener();
     }
 
-    private final Player.Listener listener;
+    private static synchronized LibVLC acquireEngine(Context context) {
+        if (sharedLibVlc == null) {
+            ArrayList<String> options = new ArrayList<>();
+            options.add("--rtsp-tcp");
+            options.add("--network-caching=500");
+            sharedLibVlc = new LibVLC(context, options);
+        }
+        engineUsers++;
+        return sharedLibVlc;
+    }
 
-    private Player.Listener createListener() {
-        return new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int state) {
-                if (state == Player.STATE_BUFFERING) {
-                    status.onStatus(context.getString(R.string.camera_connecting));
-                } else if (state == Player.STATE_READY) {
-                    status.onStatus(null);
-                } else if (state == Player.STATE_ENDED) {
-                    status.onStatus(context.getString(R.string.camera_no_signal));
-                    scheduleRetry();
-                }
-            }
-
-            @Override
-            public void onRenderedFirstFrame() {
-                status.onStatus(null);
-            }
-
-            @Override
-            public void onVideoSizeChanged(VideoSize size) {
-                if (frame != null && size.width > 0 && size.height > 0) {
-                    frame.setAspect(size.width * size.pixelWidthHeightRatio / size.height);
-                }
-            }
-
-            @Override
-            public void onPlayerError(PlaybackException error) {
-                // Show why it failed (error code and the cause's message, never the address: it can hold a password).
-                Throwable cause = error.getCause();
-                String why = error.getErrorCodeName() + (cause != null && cause.getMessage() != null
-                        ? "\n" + cause.getMessage() : "");
-                Log.w(TAG, "camera failed: " + why, error);
-                status.onStatus(context.getString(R.string.camera_no_signal) + "\n" + why);
-                scheduleRetry();
-            }
-        };
+    private static synchronized void releaseEngine() {
+        if (engineUsers > 0) engineUsers--;
+        if (engineUsers == 0 && sharedLibVlc != null) {
+            sharedLibVlc.release();
+            sharedLibVlc = null;
+        }
     }
 
     void start() {
         if (released || player != null) return;
+
         status.onStatus(context.getString(R.string.camera_connecting));
-        // Small buffers: these are live streams on a TV with little memory, and four of them may play at once.
-        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(1500, 3000, 500, 1000)
-                .build();
-        ExoPlayer p = new ExoPlayer.Builder(context).setLoadControl(loadControl).build();
-        p.setVolume(muted ? 0f : 1f);
-        p.setVideoTextureView(texture);
-        p.addListener(listener);
-        p.setMediaSource(new RtspMediaSource.Factory()
-                .setForceUseRtpTcp(true)   // TCP: steadier over Wi-Fi than UDP, and works through most routers
-                .createMediaSource(MediaItem.fromUri(Uri.parse(url))));
-        p.setPlayWhenReady(true);
-        p.prepare();
-        player = p;
+        try {
+            libVlc = acquireEngine(context);
+            MediaPlayer next = new MediaPlayer(libVlc);
+            next.setEventListener(event -> {
+                if (released || player != next) return;
+                switch (event.type) {
+                    case MediaPlayer.Event.Opening:
+                    case MediaPlayer.Event.Buffering:
+                        status.onStatus(context.getString(R.string.camera_connecting));
+                        break;
+                    case MediaPlayer.Event.Playing:
+                        status.onStatus(null);
+                        break;
+                    case MediaPlayer.Event.EncounteredError:
+                        Log.w(TAG, "LibVLC could not play camera stream (RTSP/H.264)");
+                        status.onStatus(context.getString(R.string.camera_no_signal));
+                        scheduleRetry();
+                        break;
+                    case MediaPlayer.Event.Stopped:
+                        if (!released) {
+                            status.onStatus(context.getString(R.string.camera_no_signal));
+                            scheduleRetry();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            next.attachViews(videoLayout, null, false, true);
+            Media media = new Media(libVlc, Uri.parse(url));
+            media.setHWDecoderEnabled(true, false);
+            media.addOption(":rtsp-tcp");
+            media.addOption(":network-caching=500");
+            next.setMedia(media);
+            media.release();
+            next.setVolume(muted ? 0 : 100);
+            player = next;
+            next.play();
+        } catch (RuntimeException error) {
+            Log.e(TAG, "Unable to initialize LibVLC camera player", error);
+            status.onStatus(context.getString(R.string.camera_no_signal) + "\n" + error.getClass().getSimpleName());
+            releaseCurrentPlayer();
+            scheduleRetry();
+        }
     }
 
     private void scheduleRetry() {
         handler.removeCallbacksAndMessages(null);
         handler.postDelayed(() -> {
             if (released) return;
-            if (player != null) {
-                player.release();
-                player = null;
-            }
+            releaseCurrentPlayer();
             start();
         }, RETRY_MS);
+    }
+
+    private void releaseCurrentPlayer() {
+        MediaPlayer current = player;
+        player = null;
+        if (current != null) {
+            try {
+                current.stop();
+                current.detachViews();
+            } catch (RuntimeException error) {
+                Log.w(TAG, "Error detaching LibVLC video output", error);
+            }
+            current.release();
+        }
+        if (libVlc != null) {
+            libVlc = null;
+            releaseEngine();
+        }
     }
 
     void release() {
         released = true;
         handler.removeCallbacksAndMessages(null);
-        if (player != null) {
-            player.release();
-            player = null;
-        }
+        releaseCurrentPlayer();
     }
 }
