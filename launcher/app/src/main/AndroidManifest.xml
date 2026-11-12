@@ -186,6 +186,15 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
 
+        <!-- One camera across the whole screen (CameraPanel opens it). No history: Back returns to Home, whose
+             cameras start again in onResume. -->
+        <activity
+            android:name=".CameraFullscreenActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+
         <!-- stock_home_redirect at boot: HomeKeyService opens this invisible activity once, so the screen behind
              it sends a window event when it closes (HomeKeyService.probeAtBoot). -->
         <activity

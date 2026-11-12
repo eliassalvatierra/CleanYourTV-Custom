@@ -149,4 +149,14 @@
     <string name="clock_format_system">Sistema</string>
     <string name="clock_format_12">12 horas</string>
     <string name="clock_format_24">24 horas</string>
+    <string name="cameras">Cámaras</string>
+    <string name="cameras_edit">Editar</string>
+    <string name="cameras_edit_title">Cámaras (RTSP)</string>
+    <string name="cameras_hint">Una dirección RTSP por cámara, hasta 4. Conviene usar el stream de baja resolución de cada cámara: gasta menos memoria y arranca más rápido.</string>
+    <string name="cameras_empty">Todavía no hay cámaras. Presiona OK para agregar direcciones RTSP.</string>
+    <string name="camera_n">Cámara %1$d</string>
+    <string name="camera_connecting">Conectando…</string>
+    <string name="camera_no_signal">Sin señal. Reintentando…</string>
+    <string name="more_apps">Más aplicaciones</string>
+    <string name="restart_ui">Reiniciar interfaz</string>
 </resources>

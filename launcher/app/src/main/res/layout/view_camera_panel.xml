@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Inflated into CameraPanel (a vertical LinearLayout): a slim header row, then the area the camera tiles fill.
+     The header sits above the video, so nothing ever covers a picture. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingBottom="8dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <TextView
+            android:id="@+id/cameraTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:singleLine="true"
+            android:text="@string/cameras"
+            android:textAllCaps="true"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.22" />
+
+        <TextView
+            android:id="@+id/cameraEdit"
+            style="@style/TopButton"
+            android:text="@string/cameras_edit"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/cameraArea"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:id="@+id/cameraGrid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/cameraEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="24dp"
+            android:text="@string/cameras_empty"
+            android:textColor="@drawable/pill_text"
+            android:textSize="16sp"
+            android:fontFamily="@string/font_regular"
+            android:background="@drawable/pill_bg"
+            android:focusable="true"
+            android:clickable="true"
+            android:visibility="gone" />
+    </FrameLayout>
+</merge>

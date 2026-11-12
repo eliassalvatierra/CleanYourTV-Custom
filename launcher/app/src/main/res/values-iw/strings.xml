@@ -152,4 +152,14 @@
     <string name="clock_format_system">מערכת</string>
     <string name="clock_format_12">12 שעות</string>
     <string name="clock_format_24">24 שעות</string>
+    <string name="cameras">מצלמות</string>
+    <string name="cameras_edit">עריכה</string>
+    <string name="cameras_edit_title">מצלמות (RTSP)</string>
+    <string name="cameras_hint">כתובת RTSP אחת לכל מצלמה, עד 4. מומלץ להשתמש בזרם ברזולוציה נמוכה של כל מצלמה: הוא דורש פחות זיכרון ומתחיל מהר יותר.</string>
+    <string name="cameras_empty">עדיין אין מצלמות. לחצו OK כדי להוסיף כתובות RTSP.</string>
+    <string name="camera_n">מצלמה %1$d</string>
+    <string name="camera_connecting">מתחבר…</string>
+    <string name="camera_no_signal">אין אות. מנסה שוב…</string>
+    <string name="more_apps">עוד אפליקציות</string>
+    <string name="restart_ui">הפעלה מחדש של הממשק</string>
 </resources>

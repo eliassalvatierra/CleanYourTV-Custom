@@ -381,27 +381,92 @@
             </LinearLayout>
         </RelativeLayout>
 
-        <!-- The wrapper clips at the grid's edge; the grid itself must not clip so scaled tiles can overflow their cells. -->
-        <FrameLayout
+        <!-- Home below the header, split 70 / 30: the cameras on the left, the app list on the right. The two are
+             side by side in one row, so neither can cover the other. -->
+        <LinearLayout
+            android:id="@+id/mainRow"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="10dp">
+            android:layout_marginTop="10dp"
+            android:baselineAligned="false"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:orientation="horizontal"
+            android:weightSum="10">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/grid"
-                android:layout_width="match_parent"
+            <!-- 70%: the cameras (CameraPanel, up to four RTSP streams). -->
+            <com.gathin.tvhome.CameraPanel
+                android:id="@+id/cameraPanel"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:paddingTop="10dp"
-                android:paddingBottom="40dp"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:clipToPadding="false"
+                android:layout_weight="7"
+                android:layout_marginEnd="16dp"
                 android:clipChildren="false"
-                android:overScrollMode="never"
-                android:scrollbars="none"
-                android:descendantFocusability="afterDescendants" />
-        </FrameLayout>
+                android:clipToPadding="false" />
+
+            <!-- 30%: the app list (two columns, four rows in view, the rest scrolls down), then the two buttons
+                 in their own rows under it. -->
+            <LinearLayout
+                android:id="@+id/appsColumn"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="3"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:orientation="vertical">
+
+                <!-- The wrapper clips at the grid's edge; the grid itself must not clip so scaled tiles can overflow their cells. -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/grid"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="40dp"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:clipToPadding="false"
+                        android:clipChildren="false"
+                        android:overScrollMode="never"
+                        android:scrollbars="none"
+                        android:descendantFocusability="afterDescendants" />
+                </FrameLayout>
+
+                <!-- Under the list, never over it: one pill per row. -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="8dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
+
+                    <TextView
+                        android:id="@+id/btnMoreApps"
+                        style="@style/TopButton"
+                        android:layout_width="match_parent"
+                        android:layout_marginStart="0dp"
+                        android:singleLine="true"
+                        android:text="@string/more_apps"
+                        android:drawableStart="@drawable/ic_apps_pill" />
+
+                    <TextView
+                        android:id="@+id/btnRestartUi"
+                        style="@style/TopButton"
+                        android:layout_width="match_parent"
+                        android:layout_marginStart="0dp"
+                        android:layout_marginTop="8dp"
+                        android:singleLine="true"
+                        android:text="@string/restart_ui" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 
     <!-- The single floating glass highlight that springs between tiles. -->

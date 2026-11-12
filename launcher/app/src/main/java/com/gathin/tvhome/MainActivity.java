@@ -142,6 +142,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private AppAdapter adapter;
     private RecyclerView grid;
+    /** The left 70% of Home: up to four RTSP cameras. Started in onResume and stopped in onPause. */
+    private CameraPanel cameraPanel;
+    /** The two pills under the app list. They sit in their own rows below it, not over any tile. */
+    private View btnMoreApps;
+    private View btnRestartUi;
+    /** The App library was opened from the "More apps" pill, so closing it puts focus back there. */
+    private boolean libraryFromMoreApps;
     private FrameLayout root;
     private WallpaperPlayer wallpaperPlayer;
     private GlassView glass;
@@ -607,6 +614,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         moduleCards = cfg.moduleCards;
         hiddenApps = new HashSet<>(cfg.hiddenApps);
         libraryExcludedApps = new HashSet<>(cfg.libraryExcludedApps);
+
+        cameraPanel = findViewById(R.id.cameraPanel);
+        // "More apps" opens the App library (needs app_library); "Restart interface" rebuilds Home from scratch,
+        // the same recreate() a changed Launcher setting uses, and onResume then starts the cameras again.
+        btnMoreApps = findViewById(R.id.btnMoreApps);
+        btnMoreApps.setVisibility(appLibraryEnabled ? View.VISIBLE : View.GONE);
+        btnMoreApps.setOnClickListener(v -> {
+            onLibraryRequested();
+            libraryFromMoreApps = true;   // closing it goes back to this pill, not to the grid
+        });
+        btnRestartUi = findViewById(R.id.btnRestartUi);
+        btnRestartUi.setOnClickListener(v -> recreate());
 
         grid = findViewById(R.id.grid);
         rtlAppGrid = getResources().getBoolean(R.bool.rtl_app_grid);
@@ -1132,6 +1151,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (gameDay != null) gameDay.start();
         sky.update();
         wallpaperPlayer.start();
+        // Every return to Home (from another app, a camera's full screen, the clock) starts the cameras anew.
+        if (cameraPanel != null) cameraPanel.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
         if (festive && lamp != null) {
             lamp.start();
@@ -1306,6 +1327,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.removeCallbacks(showIdleClock);
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
+        if (cameraPanel != null) cameraPanel.stop();   // players and surfaces are let go while Home is not in front
         stopAmbientAnimation();
         hero.animate().cancel();
         ambient.animate().cancel();
@@ -1767,9 +1789,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         libraryFocusPending = false;
         libraryFromTopBar = false;
         libraryFromVpnPill = false;
+        libraryFromMoreApps = false;
         appLibrary = new AppLibraryDialog(this, animations, reducedMotion, appLibrarySelection, libraryOkOpens, adapter::containsPackage, () -> reloadApps(false), () -> {
             appLibrary = null;
             openPopup = null;
+            if (libraryFromMoreApps) {
+                libraryFromMoreApps = false;
+                btnMoreApps.requestFocus();
+                return;
+            }
             if (libraryFromTopBar) {
                 libraryFromTopBar = false;
                 btnLibraryTop.requestFocus();
@@ -2443,6 +2471,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 focusLibrary();
                 return true;
             }
+            // Left from the first column leaves for the cameras, which sit to the left of the app list.
+            if (!rtlAppGrid && keyCode == KeyEvent.KEYCODE_DPAD_LEFT && position % COLUMNS == 0
+                    && cameraPanel != null && cameraPanel.focusFirst()) {
+                return true;
+            }
             // In the dock, the last app is the row's end: the empty slots after it take no focus.
             int rowCount = position < COLUMNS ? Math.min(count, adapter.dockFilled()) : count;
             return GridNavigation.atHorizontalEdge(position, rowCount, COLUMNS,
@@ -2455,6 +2488,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
             if (position >= lastRowStart) {
                 if (adapter.isLibraryAt(count)) focusLibrary();
+                else if (btnMoreApps.getVisibility() == View.VISIBLE) btnMoreApps.requestFocus();
+                else if (btnRestartUi.getVisibility() == View.VISIBLE) btnRestartUi.requestFocus();
                 return true;
             }
             target = Math.min(position + COLUMNS, count - 1);
