@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -104,7 +106,7 @@ public final class CameraWall extends LinearLayout {
         addView(secondRow, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
         for (int i = 0; i < 4; i++) {
             AspectFrame frame = new AspectFrame(context);
-            frame.setBackgroundColor(0xFF080B10);
+            frame.setBackground(cameraBackground());
             TextureView texture = new TextureView(context);
             frame.addView(texture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
             frame.setFocusable(!fullScreen);
@@ -157,6 +159,19 @@ public final class CameraWall extends LinearLayout {
                 frames[i].setLayoutParams(params);
             }
         }
+    }
+
+    private StateListDrawable cameraBackground() {
+        GradientDrawable normal = new GradientDrawable();
+        normal.setColor(0xFF080B10);
+        normal.setStroke(dp(1), 0x55777777);
+        GradientDrawable focused = new GradientDrawable();
+        focused.setColor(0xFF080B10);
+        focused.setStroke(dp(3), Color.WHITE);
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_focused}, focused);
+        states.addState(new int[]{}, normal);
+        return states;
     }
 
     private int dp(float value) {
