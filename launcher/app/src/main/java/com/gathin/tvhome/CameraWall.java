@@ -110,6 +110,8 @@ public final class CameraWall extends LinearLayout {
             frame.setFocusable(false);
             frames[i] = frame;
             textures[i] = texture;
+            final int cameraIndex = i;
+            frame.setOnClickListener(v -> openFullscreen(cameraIndex));
             LayoutParams cell = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
             cell.setMargins(dp(2), dp(2), dp(2), dp(2));
             (i < 2 ? firstRow : secondRow).addView(frame, cell);
@@ -219,6 +221,12 @@ public final class CameraWall extends LinearLayout {
                     updateStatus();
                     start();
                 }).show();
+    }
+
+    private void openFullscreen(int index) {
+        Intent intent = new Intent(getContext(), CameraFullscreenActivity.class);
+        intent.putExtra(CameraFullscreenActivity.EXTRA_INDEX, index);
+        getContext().startActivity(intent);
     }
 
     private String streamUrl(String host, String user, String pass, int index) {
