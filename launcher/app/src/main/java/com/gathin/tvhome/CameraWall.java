@@ -2,6 +2,7 @@ package com.gathin.tvhome;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
@@ -38,13 +39,19 @@ public final class CameraWall extends LinearLayout {
     private final TextView status;
     private LibVLC libVLC;
     private boolean released;
+    private final boolean fullScreen;
 
     public CameraWall(Context context, AttributeSet attrs) {
-        this(context);
+        this(context, false);
     }
 
     public CameraWall(Context context) {
+        this(context, false);
+    }
+
+    public CameraWall(Context context, boolean fullScreen) {
         super(context);
+        this.fullScreen = fullScreen;
         setOrientation(VERTICAL);
         setClipChildren(false);
         setClipToPadding(false);
@@ -68,6 +75,17 @@ public final class CameraWall extends LinearLayout {
         settings.setIncludeFontPadding(false);
         heading.addView(settings, new LayoutParams(LayoutParams.WRAP_CONTENT, dp(30)));
         settings.setTranslationY(-dp(3));
+        Button fullScreenButton = new Button(context);
+        fullScreenButton.setText("PANTALLA COMPLETA");
+        fullScreenButton.setTextSize(10);
+        fullScreenButton.setAllCaps(false);
+        fullScreenButton.setMinHeight(0);
+        fullScreenButton.setMinWidth(0);
+        fullScreenButton.setPadding(dp(8), 0, dp(8), 0);
+        fullScreenButton.setOnClickListener(v ->
+                context.startActivity(new Intent(context, CameraFullscreenActivity.class)));
+        heading.addView(fullScreenButton, new LayoutParams(LayoutParams.WRAP_CONTENT, dp(30)));
+        heading.setVisibility(fullScreen ? GONE : VISIBLE);
         addView(heading, new LayoutParams(LayoutParams.MATCH_PARENT, dp(34)));
 
         LinearLayout row1 = new LinearLayout(context);
@@ -97,6 +115,7 @@ public final class CameraWall extends LinearLayout {
         status.setGravity(Gravity.CENTER);
         status.setBackgroundColor(0xAA080B10);
         addView(status, new LayoutParams(LayoutParams.MATCH_PARENT, dp(24)));
+        if (fullScreen) status.setVisibility(GONE);
         updateStatus();
     }
 
@@ -107,16 +126,26 @@ public final class CameraWall extends LinearLayout {
     }
 
     private void sizeSquareCells() {
-        if (firstRow == null || secondRow == null || getWidth() == 0) return;
-        int availableWidth = Math.max(0, (getWidth() - dp(16)) / 2);
-        int side = Math.min(availableWidth, Math.min(firstRow.getHeight(), secondRow.getHeight()) - dp(4));
-        if (side <= 0) return;
+        if (firstRow == null || secondRow == null || getWidth() == 0 || getHeight() == 0) return;
+        int cellWidth;
+        int cellHeight;
+        if (fullScreen) {
+            // A 16:9 TV split into four equal cells gives each camera its native 16:9 viewport.
+            cellWidth = Math.max(0, (getWidth() - dp(8)) / 2);
+            cellHeight = Math.max(0, (getHeight() - dp(8)) / 2);
+        } else {
+            int availableWidth = Math.max(0, (getWidth() - dp(16)) / 2);
+            int side = Math.min(availableWidth, Math.min(firstRow.getHeight(), secondRow.getHeight()) - dp(4));
+            cellWidth = side;
+            cellHeight = side;
+        }
+        if (cellWidth <= 0 || cellHeight <= 0) return;
         for (int i = 0; i < 4; i++) {
             VLCVideoLayout surface = surfaces[i];
             LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) surface.getLayoutParams();
-            if (params.width != side) {
-                params.width = side;
-                params.height = side;
+            if (params.width != cellWidth || params.height != cellHeight) {
+                params.width = cellWidth;
+                params.height = cellHeight;
                 surface.setLayoutParams(params);
             }
         }
