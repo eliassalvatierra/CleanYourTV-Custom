@@ -625,7 +625,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // single_row: one span laid out sideways, so the same adapter, glass and dock band serve a scrolling row.
         // In the camera-first home layout, keep app tiles readable in the right-side rail.
         // Preserve the original column count when the dock row or single-row mode is enabled.
-        final int appGridSpanCount = singleRow ? 1 : (dockRow ? COLUMNS : 2);
+        final int appGridSpanCount = singleRow ? 1 : COLUMNS;
         grid.setLayoutManager(new GridLayoutManager(this, appGridSpanCount,
                 singleRow ? RecyclerView.HORIZONTAL : RecyclerView.VERTICAL, false) {
             @Override
@@ -735,7 +735,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Camera-first TV layout: expose four rows in the right rail before the catalogue submenu.
         // The right rail has room for several compact rows; anything beyond the visible area
         // remains reachable through the full App Library.
-        int rowsBelowDock = singleRow ? cfg.rowsBelowDock : Math.max(cfg.rowsBelowDock, 5);
+        int rowsBelowDock = singleRow ? cfg.rowsBelowDock : (dockRow ? 3 : 4);
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
@@ -881,11 +881,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 btnRestartInterface.setEnabled(false);
                 recreate();
             });
+            btnRestartInterface.setNextFocusUpId(R.id.btnMoreApps);
+            btnRestartInterface.setNextFocusDownId(R.id.grid);
         }
         View btnMoreApps = findViewById(R.id.btnMoreApps);
         if (btnMoreApps != null) {
             btnMoreApps.setVisibility(cfg.appLibrary ? View.VISIBLE : View.GONE);
             btnMoreApps.setOnClickListener(v -> onLibraryRequested());
+            btnMoreApps.setNextFocusUpId(R.id.grid);
+            btnMoreApps.setNextFocusDownId(R.id.btnRestartInterface);
+        }
+        if (btnRestartInterface != null && (btnMoreApps == null || btnMoreApps.getVisibility() != View.VISIBLE)) {
+            btnRestartInterface.setNextFocusUpId(R.id.grid);
         }
         btnLibraryTop = findViewById(R.id.btnLibraryTop);
         btnLibraryTop.setOnClickListener(v -> {
@@ -2509,7 +2516,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
             if (position >= lastRowStart) {
-                if (adapter.isLibraryAt(count)) focusLibrary();
+                View moreApps = findViewById(R.id.btnMoreApps);
+                View restartInterface = findViewById(R.id.btnRestartInterface);
+                if (moreApps != null && moreApps.getVisibility() == View.VISIBLE && moreApps.isFocusable()) {
+                    moreApps.requestFocus();
+                } else if (restartInterface != null && restartInterface.getVisibility() == View.VISIBLE) {
+                    restartInterface.requestFocus();
+                }
                 return true;
             }
             target = Math.min(position + COLUMNS, count - 1);
