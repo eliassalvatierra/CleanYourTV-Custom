@@ -112,7 +112,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The system input switcher, forwarded here by InputsRequestActivity while handle_view_inputs is on. */
     static final String ACTION_VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS";
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
-    static int COLUMNS = 4;
+    static int COLUMNS = 2;
     private boolean rtlAppGrid;
     private static final long MINUTE_MS = 60_000L;
     private static final long STATS_MS = 10_000L;
@@ -485,7 +485,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         settingsKeycodes = cfg.settingsKeycodes;
         settingsKeyPanel = cfg.settingsKeyPanel;
         // Camera-first home always uses a four-column, multi-row app grid.
-        COLUMNS = 4;
+        COLUMNS = 2;
         animations = cfg.animations;
         advancedEffects = cfg.animations && cfg.advancedEffects;
         reducedMotion = cfg.reducedMotion;
