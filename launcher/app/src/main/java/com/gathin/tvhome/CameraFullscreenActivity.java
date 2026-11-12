@@ -115,7 +115,7 @@ public class CameraFullscreenActivity extends Activity {
         frame.addView(texture, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         player = new CameraPlayer(this, urls.get(i), false, texture, frame, message -> {
-            if (message == 0) {
+            if (message == null) {
                 status.setVisibility(View.GONE);
             } else {
                 status.setText(message);

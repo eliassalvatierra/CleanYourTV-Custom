@@ -169,7 +169,7 @@ public class CameraPanel extends LinearLayout {
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
 
             player = new CameraPlayer(context, urls.get(index), true, texture, frame, message -> {
-                if (message == 0) {
+                if (message == null) {
                     status.setVisibility(GONE);
                 } else {
                     status.setText(message);

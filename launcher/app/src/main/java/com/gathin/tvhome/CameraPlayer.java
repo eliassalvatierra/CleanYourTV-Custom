@@ -7,7 +7,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.TextureView;
 
-import androidx.annotation.StringRes;
+import android.util.Log;
+
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -26,9 +28,11 @@ import androidx.media3.exoplayer.rtsp.RtspMediaSource;
 final class CameraPlayer {
     private static final long RETRY_MS = 6_000L;
 
-    /** Reports what the stream is doing: a string for "connecting" or "no signal", 0 once the picture runs. */
+    private static final String TAG = "CameraPlayer";
+
+    /** Reports what the stream is doing: a line for "connecting" or the error, null once the picture runs. */
     interface Status {
-        void onStatus(@StringRes int message);
+        void onStatus(@Nullable CharSequence message);
     }
 
     private final Context context;
@@ -58,18 +62,18 @@ final class CameraPlayer {
             @Override
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_BUFFERING) {
-                    status.onStatus(R.string.camera_connecting);
+                    status.onStatus(context.getString(R.string.camera_connecting));
                 } else if (state == Player.STATE_READY) {
-                    status.onStatus(0);
+                    status.onStatus(null);
                 } else if (state == Player.STATE_ENDED) {
-                    status.onStatus(R.string.camera_no_signal);
+                    status.onStatus(context.getString(R.string.camera_no_signal));
                     scheduleRetry();
                 }
             }
 
             @Override
             public void onRenderedFirstFrame() {
-                status.onStatus(0);
+                status.onStatus(null);
             }
 
             @Override
@@ -81,7 +85,12 @@ final class CameraPlayer {
 
             @Override
             public void onPlayerError(PlaybackException error) {
-                status.onStatus(R.string.camera_no_signal);
+                // Show why it failed (error code and the cause's message, never the address: it can hold a password).
+                Throwable cause = error.getCause();
+                String why = error.getErrorCodeName() + (cause != null && cause.getMessage() != null
+                        ? "\n" + cause.getMessage() : "");
+                Log.w(TAG, "camera failed: " + why, error);
+                status.onStatus(context.getString(R.string.camera_no_signal) + "\n" + why);
                 scheduleRetry();
             }
         };
@@ -89,7 +98,7 @@ final class CameraPlayer {
 
     void start() {
         if (released || player != null) return;
-        status.onStatus(R.string.camera_connecting);
+        status.onStatus(context.getString(R.string.camera_connecting));
         // Small buffers: these are live streams on a TV with little memory, and four of them may play at once.
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(1500, 3000, 500, 1000)
