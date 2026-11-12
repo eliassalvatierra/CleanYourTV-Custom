@@ -107,6 +107,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Dedicated four-camera viewer, also listed as an app in Android TV's Leanback launcher. -->
+        <activity
+            android:name=".CameraFullscreenActivity"
+            android:label="Cámaras"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".LauncherSettingsActivity"
             android:exported="false"

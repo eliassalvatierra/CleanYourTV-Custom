@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -221,6 +222,32 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     /** Packages drawn from their icon and name even when they have a banner (config.xml icon_tiles). */
     private final Set<String> iconTiles;
     private final List<Entry> items = new ArrayList<>();
+    /** Search results are a display-only view; canonical order and favourites remain untouched. */
+    private final List<Entry> filteredItems = new ArrayList<>();
+    private boolean filtering;
+    private String filterQuery = "";
+
+    private List<Entry> visibleItems() { return filtering ? filteredItems : items; }
+
+    void filterApps(String query) {
+        filterQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        filtering = !filterQuery.isEmpty();
+        filteredItems.clear();
+        if (filtering) {
+            for (Entry entry : items) {
+                if (entry.kind == Entry.EMPTY) continue;
+                String name = entry.name == null ? "" : entry.name.toLowerCase(Locale.ROOT);
+                String label = entry.label == null ? "" : entry.label.toLowerCase(Locale.ROOT);
+                String pkg = entry.pkg == null ? "" : entry.pkg.toLowerCase(Locale.ROOT);
+                if (name.contains(filterQuery) || label.contains(filterQuery) || pkg.contains(filterQuery)) {
+                    filteredItems.add(entry);
+                }
+            }
+        }
+        notifyDataSetChanged();
+    }
+
+    boolean isFiltering() { return filtering; }
 
     AppAdapter(Context ctx, TileListener listener, int dockSize, Config cfg) {
         this.ctx = ctx;
@@ -342,7 +369,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         items.clear();
         items.addAll(fresh);
-        notifyDataSetChanged();
+        if (filtering) filterApps(filterQuery);
+        else notifyDataSetChanged();
     }
 
     /** icon_tiles: the app's icon centred on a dark banner-shaped tile, for apps whose own banner crops badly. */
@@ -392,6 +420,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     /** Lets go of every tile and its artwork (Home is in the background and memory is short). */
     void clear() {
         items.clear();
+        filteredItems.clear();
         notifyDataSetChanged();
     }
 
@@ -460,7 +489,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (isLibraryAt(position)) return;
         Holder h = (Holder) holder;
-        Entry e = items.get(position);
+        Entry e = visibleItems().get(position);
         if (e.kind == Entry.EMPTY) {
             // A free dock slot keeps its place in the row and the band, but shows nothing and takes no focus.
             h.card.setVisibility(View.INVISIBLE);
@@ -564,12 +593,12 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     @Override
     public int getItemCount() {
-        return items.size() + (showLibrary ? 1 : 0);
+        return visibleItems().size() + (showLibrary ? 1 : 0);
     }
 
-    int appCount() { return items.size(); }
+    int appCount() { return visibleItems().size(); }
 
-    boolean isLibraryAt(int position) { return showLibrary && position == items.size(); }
+    boolean isLibraryAt(int position) { return showLibrary && position == visibleItems().size(); }
 
     @Override public int getItemViewType(int position) { return isLibraryAt(position) ? 1 : 0; }
 
@@ -580,7 +609,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     @Override
     public long getItemId(int position) {
-        return isLibraryAt(position) ? Long.MIN_VALUE : items.get(position).component.flattenToShortString().hashCode();
+        return isLibraryAt(position) ? Long.MIN_VALUE : visibleItems().get(position).component.flattenToShortString().hashCode();
     }
 
     /** Uses this saved order and dock size from the next reload() (Order.ranks, Order.docked). */
@@ -601,7 +630,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** Reorder mode on or off; takes effect at the next reload() (empty dock slots are left out while on). */
     void setReordering(boolean on) {
-        reordering = on;
+        reordering = on && !filtering;
     }
 
     boolean hasEmptySlots() {
@@ -638,14 +667,16 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** Stable key for the app at a position (its component), or null. */
     String keyAt(int position) {
-        return position >= 0 && position < items.size() ? items.get(position).component.flattenToShortString() : null;
+        List<Entry> shown = visibleItems();
+        return position >= 0 && position < shown.size() ? shown.get(position).component.flattenToShortString() : null;
     }
 
     /** Position of the app with this key, or -1 when it is gone. */
     int positionOf(String key) {
         if (key == null) return -1;
-        for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).component.flattenToShortString().equals(key)) return i;
+        List<Entry> shown = visibleItems();
+        for (int i = 0; i < shown.size(); i++) {
+            if (shown.get(i).component.flattenToShortString().equals(key)) return i;
         }
         return -1;
     }
@@ -661,17 +692,20 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     String labelAt(int position) {
-        return position >= 0 && position < items.size() ? items.get(position).label : "";
+        List<Entry> shown = visibleItems();
+        return position >= 0 && position < shown.size() ? shown.get(position).label : "";
     }
 
     String packageAt(int position) {
-        return position >= 0 && position < items.size() ? items.get(position).pkg : null;
+        List<Entry> shown = visibleItems();
+        return position >= 0 && position < shown.size() ? shown.get(position).pkg : null;
     }
 
     /** The tile's artwork, its banner or else its icon, for the cinematic shelf's backdrop (HeroArt). */
     Drawable artworkAt(int position) {
-        if (position < 0 || position >= items.size()) return null;
-        Entry e = items.get(position);
+        List<Entry> shown = visibleItems();
+        if (position < 0 || position >= shown.size()) return null;
+        Entry e = shown.get(position);
         return e.banner != null ? e.banner : e.icon;
     }
 
@@ -681,8 +715,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** A vivid colour sampled from the app's banner (or icon), cached per entry; a card's accent when it set one. */
     int ambientColorAt(int position) {
-        if (position < 0 || position >= items.size()) return 0xFF444444;
-        Entry e = items.get(position);
+        List<Entry> shown = visibleItems();
+        if (position < 0 || position >= shown.size()) return 0xFF444444;
+        Entry e = shown.get(position);
         if (e.ambient == 0) {
             e.ambient = uniformTiles && e.banner == null ? dominantColor(e.icon) : vividColor(e.banner != null ? e.banner : e.icon);
         }

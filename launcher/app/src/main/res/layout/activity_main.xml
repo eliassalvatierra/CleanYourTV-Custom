@@ -49,7 +49,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:weightSum="10">
 
             <!-- A short kerb-red bar, the panel's one accent. -->
             <View
@@ -160,9 +161,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingStart="56dp"
-        android:paddingEnd="56dp"
-        android:paddingTop="26dp"
+        android:paddingStart="22dp"
+        android:paddingEnd="22dp"
+        android:paddingTop="14dp"
         android:clipChildren="false"
         android:clipToPadding="false">
 
@@ -337,7 +338,7 @@
                     style="@style/TopButton"
                     android:text="@string/inputs"
                     android:drawableStart="@drawable/ic_input"
-                    android:nextFocusDown="@+id/grid" />
+                    android:nextFocusDown="@id/appSearch" />
 
                 <TextView
                     android:id="@+id/btnWifi"
@@ -347,7 +348,7 @@
                     android:ellipsize="end"
                     android:text="@string/wifi"
                     android:drawableStart="@drawable/ic_wifi"
-                    android:nextFocusDown="@+id/grid" />
+                    android:nextFocusDown="@id/appSearch" />
 
                 <TextView
                     android:id="@+id/btnVpn"
@@ -355,14 +356,14 @@
                     android:visibility="gone"
                     android:singleLine="true"
                     android:text="@string/vpn"
-                    android:nextFocusDown="@+id/grid" />
+                    android:nextFocusDown="@id/appSearch" />
 
                 <TextView
                     android:id="@+id/btnReorder"
                     style="@style/TopButtonIcon"
                     android:contentDescription="@string/reorder"
                     android:drawableStart="@drawable/ic_swap_vert"
-                    android:nextFocusDown="@+id/grid" />
+                    android:nextFocusDown="@id/appSearch" />
 
                 <TextView
                     android:id="@+id/btnLibraryTop"
@@ -370,38 +371,120 @@
                     android:visibility="gone"
                     android:contentDescription="@string/app_library"
                     android:drawableStart="@drawable/ic_apps_pill"
-                    android:nextFocusDown="@+id/grid" />
+                    android:nextFocusDown="@id/appSearch" />
 
                 <TextView
                     android:id="@+id/btnSettings"
                     style="@style/TopButton"
                     android:text="@string/settings"
                     android:drawableStart="@drawable/ic_settings"
-                    android:nextFocusDown="@+id/grid" />
+                    android:nextFocusDown="@id/appSearch" />
             </LinearLayout>
         </RelativeLayout>
 
-        <!-- The wrapper clips at the grid's edge; the grid itself must not clip so scaled tiles can overflow their cells. -->
-        <FrameLayout
+        <EditText
+            android:id="@+id/appSearch"
+            android:layout_width="300dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:singleLine="true"
+            android:hint="Buscar aplicaciones"
+            android:textColor="#FFFFFFFF"
+            android:textColorHint="#88FFFFFF"
+            android:textSize="15sp"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:background="#222B3440"
+            android:visibility="gone"
+            android:nextFocusDown="@id/grid"
+            android:nextFocusUp="@id/btnSettings" />
+
+        <!-- Main workspace: large camera wall on the left, applications in a dedicated right rail. -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="10dp">
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="4dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/grid"
-                android:layout_width="match_parent"
+            <com.gathin.tvhome.CameraWall
+                android:id="@+id/cameraWall"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:paddingTop="10dp"
-                android:paddingBottom="40dp"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:clipToPadding="false"
-                android:clipChildren="false"
-                android:overScrollMode="never"
-                android:scrollbars="none"
-                android:descendantFocusability="afterDescendants" />
-        </FrameLayout>
+                android:layout_weight="7"
+                android:layout_marginEnd="8dp" />
+
+            <!-- The app rail has four visible rows and two independent action buttons below it. -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="3"
+                android:layout_marginStart="4dp"
+                android:orientation="vertical">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/grid"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="4dp"
+                    android:nextFocusDown="@id/btnMoreApps"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:clipToPadding="false"
+                    android:clipChildren="false"
+                    android:overScrollMode="never"
+                    android:scrollbars="none"
+                    android:descendantFocusability="afterDescendants" />
+
+                <TextView
+                    android:id="@+id/btnMoreApps"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_marginTop="2dp"
+                    android:background="@drawable/glass_panel"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:nextFocusUp="@id/grid"
+                    android:nextFocusDown="@id/btnRestartInterface"
+                    android:text="MÁS APLICACIONES"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.10"
+                    android:textAllCaps="true" />
+
+                <TextView
+                    android:id="@+id/btnRestartInterface"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:background="@drawable/glass_panel"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:nextFocusUp="@id/btnMoreApps"
+                    android:nextFocusDown="@id/grid"
+                    android:text="REINICIAR INTERFAZ"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="11sp"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.06"
+                    android:textAllCaps="true" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 
     <!-- The single floating glass highlight that springs between tiles. -->

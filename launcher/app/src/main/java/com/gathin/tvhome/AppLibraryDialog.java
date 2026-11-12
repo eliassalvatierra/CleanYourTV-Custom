@@ -31,6 +31,7 @@ import androidx.annotation.NonNull;
 import androidx.dynamicanimation.animation.FloatPropertyCompat;
 import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -103,6 +104,9 @@ final class AppLibraryDialog {
     private float scrollOffset;
     private boolean highlightShown;
     private final int catalogWidth;
+    private final int catalogHeight;
+    private static final String ORDER_PREFS = "app_library_preferences";
+    private static final String ORDER_KEY = "catalog_order";
 
     private void stopHighlight() {
         if (spring != null) spring.cancel();
@@ -165,9 +169,10 @@ final class AppLibraryDialog {
         panel.setPadding(dp(12), dp(8), dp(12), dp(12));
         panel.setBackgroundResource(R.drawable.glass_panel);
         View decor = activity.getWindow().getDecorView();
-        catalogWidth = Math.min(dp(800), Math.max(dp(200), decor.getWidth() - dp(64)));
+        catalogWidth = Math.max(dp(320), decor.getWidth() - dp(32));
+        catalogHeight = Math.max(dp(240), decor.getHeight() - dp(32));
         int width = catalogWidth;
-        int height = dp(280);
+        int height = catalogHeight;
         popup = new PopupWindow(panel, width, height, true);
         popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         popup.setOutsideTouchable(true);
@@ -281,13 +286,25 @@ final class AppLibraryDialog {
         }
         catalogTime = System.currentTimeMillis();
         Collator collator = Collator.getInstance();
+        Map<String, Integer> savedOrder = new HashMap<>();
+        if (!selectionMode) {
+            String saved = activity.getSharedPreferences(ORDER_PREFS, Activity.MODE_PRIVATE).getString(ORDER_KEY, "");
+            if (!saved.isEmpty()) {
+                String[] keys = saved.split("\\|");
+                for (int i = 0; i < keys.length; i++) savedOrder.put(keys[i], i);
+            }
+        }
         apps.sort((a, b) -> {
             String pa = a.activityInfo.packageName, pb = b.activityInfo.packageName;
             if (selectionMode) return LibraryApps.compareCatalog(home.get(pa), label(a), pa,
                     home.get(pb), label(b), pb, collator);
-            int priority = LibraryApps.comparePriority(home.get(pa), installTimes.get(pa),
-                    home.get(pb), installTimes.get(pb), catalogTime);
-            if (priority != 0) return priority;
+            Integer ia = savedOrder.get(pa), ib = savedOrder.get(pb);
+            if (ia != null || ib != null) {
+                if (ia == null) return 1;
+                if (ib == null) return -1;
+                int bySaved = Integer.compare(ia, ib);
+                if (bySaved != 0) return bySaved;
+            }
             int byLabel = collator.compare(label(a), label(b));
             return byLabel != 0 ? byLabel : pa.compareTo(pb);
         });
@@ -350,7 +367,7 @@ final class AppLibraryDialog {
 
     private void showCatalog() {
         stopHighlight();
-        resize(catalogWidth, dp(280));
+        resize(catalogWidth, catalogHeight);
         panel.removeAllViews();
         LinearLayout header = new LinearLayout(activity);
         header.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
@@ -392,9 +409,8 @@ final class AppLibraryDialog {
         RecyclerView list = new RecyclerView(activity);
         list.setLayoutDirection(rtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
         catalog = list;
-        list.setLayoutManager(new LinearLayoutManager(activity, RecyclerView.HORIZONTAL, false) {
-            @Override protected boolean isLayoutRTL() { return rtl; }
-        });
+        int columns = Math.max(4, Math.min(8, catalogWidth / dp(170)));
+        list.setLayoutManager(new GridLayoutManager(activity, columns));
         list.setItemAnimator(null);
         list.setOverScrollMode(View.OVER_SCROLL_NEVER);
         list.setClipToPadding(false);
@@ -416,8 +432,7 @@ final class AppLibraryDialog {
         else spring.setSpring(new SpringForce().setStiffness(260f).setDampingRatio(0.58f));
         list.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
-                scrollOffset += dx;
-                highlight.setTranslationX(highlight.getTranslationX() - dx);
+                highlight.setTranslationY(highlight.getTranslationY() - dy);
             }
         });
         panel.addView(shelf, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -536,6 +551,10 @@ final class AppLibraryDialog {
             restoreCardFocus();
         });
         addAction(rows, R.string.library_open, () -> open(app));
+        if (!selectionMode) {
+            addActionText(rows, "↑ Subir una posición", () -> moveApp(pkg, -1));
+            addActionText(rows, "↓ Bajar una posición", () -> moveApp(pkg, 1));
+        }
         boolean home = onHome.test(pkg);
         addAction(rows, home ? R.string.library_remove_shortcut : R.string.library_add_home,
                 () -> changeHome(app, !home));
@@ -575,6 +594,44 @@ final class AppLibraryDialog {
         rows.getChildAt(0).requestFocus();
     }
 
+    private void addActionText(LinearLayout rows, String label, Runnable action) {
+        View row = activity.getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        ((TextView) row.findViewById(R.id.title)).setText(label);
+        row.setFocusableInTouchMode(true);
+        row.findViewById(R.id.icon).setVisibility(View.GONE);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        row.setOnClickListener(v -> action.run());
+        rows.addView(row);
+        row.setOnKeyListener((v, key, event) -> event.getAction() == KeyEvent.ACTION_DOWN
+                && (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT));
+    }
+
+    private void moveApp(String packageName, int delta) {
+        int from = -1;
+        for (int i = 0; i < apps.size(); i++) {
+            if (packageName.equals(apps.get(i).activityInfo.packageName)) { from = i; break; }
+        }
+        int to = from + delta;
+        if (from < 0 || to < 0 || to >= apps.size()) {
+            dismissActions();
+            restoreCardFocus();
+            return;
+        }
+        java.util.Collections.swap(apps, from, to);
+        selectedPackage = packageName;
+        selectedPosition = to;
+        StringBuilder order = new StringBuilder();
+        for (ResolveInfo item : apps) {
+            if (order.length() > 0) order.append('|');
+            order.append(item.activityInfo.packageName);
+        }
+        activity.getSharedPreferences(ORDER_PREFS, Activity.MODE_PRIVATE).edit()
+                .putString(ORDER_KEY, order.toString()).apply();
+        dismissActions();
+        showCatalog();
+    }
+
     private void addAction(LinearLayout rows, int label, Runnable action) {
         View row = activity.getLayoutInflater().inflate(R.layout.item_input, rows, false);
         ((TextView) row.findViewById(R.id.title)).setText(label);
@@ -610,7 +667,7 @@ final class AppLibraryDialog {
     private final class Catalog extends RecyclerView.Adapter<Row> {
         @NonNull @Override public Row onCreateViewHolder(@NonNull ViewGroup parent, int type) {
             FrameLayout row = new FrameLayout(activity);
-            RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(dp(132), dp(170));
+            RecyclerView.LayoutParams params = new RecyclerView.LayoutParams(-1, dp(150));
             params.setMargins(dp(6), dp(2), dp(6), dp(2));
             row.setLayoutParams(params);
             row.setPadding(dp(10), dp(12), dp(10), dp(10));
@@ -677,13 +734,7 @@ final class AppLibraryDialog {
                     if (index != RecyclerView.NO_POSITION) selectedPosition = index;
                 }
             });
-            holder.itemView.setOnKeyListener((v, key, event) -> {
-                int index = holder.getBindingAdapterPosition();
-                return event.getAction() == KeyEvent.ACTION_DOWN && (key == KeyEvent.KEYCODE_DPAD_UP
-                        || key == KeyEvent.KEYCODE_DPAD_DOWN
-                        || (rtl ? key == KeyEvent.KEYCODE_DPAD_RIGHT : key == KeyEvent.KEYCODE_DPAD_LEFT) && index == 0
-                        || (rtl ? key == KeyEvent.KEYCODE_DPAD_LEFT : key == KeyEvent.KEYCODE_DPAD_RIGHT) && index == apps.size() - 1);
-            });
+            holder.itemView.setOnKeyListener((v, key, event) -> false);
         }
         @Override public int getItemCount() { return apps.size(); }
     }

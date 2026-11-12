@@ -48,6 +48,8 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.SpannableString;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -62,6 +64,7 @@ import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.animation.AnimationUtils;
 import android.view.animation.LayoutAnimationController;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -109,7 +112,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The system input switcher, forwarded here by InputsRequestActivity while handle_view_inputs is on. */
     static final String ACTION_VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS";
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
-    static int COLUMNS = 4;
+    static int COLUMNS = 2;
     private boolean rtlAppGrid;
     private static final long MINUTE_MS = 60_000L;
     private static final long STATS_MS = 10_000L;
@@ -142,6 +145,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private AppAdapter adapter;
     private RecyclerView grid;
+    private EditText appSearch;
+    private CameraWall cameraWall;
     private FrameLayout root;
     private WallpaperPlayer wallpaperPlayer;
     private GlassView glass;
@@ -358,6 +363,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean libraryFocusPending;
     private RecyclerView.OnScrollListener pendingFocusScroll;
 
+    private final Runnable cameraResumeRunnable = () -> {
+        if (resumed && hasWindowFocus() && !isFinishing() && cameraWall != null) {
+            cameraWall.restart();
+        }
+    };
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -455,6 +466,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        appSearch = findViewById(R.id.appSearch);
+        cameraWall = findViewById(R.id.cameraWall);
         density = getResources().getDisplayMetrics().density;
         // config.xml, overlaid by config.json from a pushed theme (see Config and tools/theme.sh).
         Config cfg = Config.load(this);
@@ -471,12 +484,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         applyViewInputsHandler(cfg.handleViewInputs);
         settingsKeycodes = cfg.settingsKeycodes;
         settingsKeyPanel = cfg.settingsKeyPanel;
-        COLUMNS = cfg.columns;
+        // Camera-first home always uses a four-column, multi-row app grid.
+        COLUMNS = 2;
         animations = cfg.animations;
         advancedEffects = cfg.animations && cfg.advancedEffects;
         reducedMotion = cfg.reducedMotion;
         dockRow = cfg.dockRow;
-        singleRow = cfg.singleRow;
+        singleRow = false;
         focusOvershoot = cfg.focusOvershoot;
         festival = cfg.festival;
         festive = festival.active(LocalDate.now());
@@ -489,7 +503,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         openOnStartOnWake = OpenOnStart.onWake(cfg.openOnStartChoice, cfg.openOnStartOnWake);
         liveTvAction = cfg.liveTvAction;
         liveTvInputId = cfg.liveTvInputId;
-        appLibraryEnabled = cfg.appLibrary;
+        // The camera-first launcher always exposes the full app catalogue.
+        // A theme overlay must not silently hide the bottom action.
+        appLibraryEnabled = true;
         tileMenuEnabled = cfg.tileMenu;
         inputAction = cfg.inputAction;
         inputSources = cfg.inputSources;
@@ -535,7 +551,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cinematic) setUpCinematicShelf(cfg.cinematicScrim);
         // dock_title false: the name above the dock (and the cinematic lines under it) never shows; the glow
         // still follows the dock.
-        if (!cfg.dockTitle) hero.setVisibility(View.GONE);
+        // In the camera-first layout the floating app title would sit over the clock/date header.
+        // App names are already visible on their tiles, so keep the header clear.
+        hero.setVisibility(View.GONE);
         greeting = findViewById(R.id.greeting);
         clockBlock = findViewById(R.id.leftBlock);
         clockRefresh = new ClockRefresh(clockBlock);
@@ -612,7 +630,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rtlAppGrid = getResources().getBoolean(R.bool.rtl_app_grid);
         // Mirror only the app grid; the header and other locales keep their own layouts.
         // single_row: one span laid out sideways, so the same adapter, glass and dock band serve a scrolling row.
-        grid.setLayoutManager(new GridLayoutManager(this, singleRow ? 1 : COLUMNS,
+        // In the camera-first home layout, keep app tiles readable in the right-side rail.
+        // Preserve the original column count when the dock row or single-row mode is enabled.
+        final int appGridSpanCount = singleRow ? 1 : COLUMNS;
+        grid.setLayoutManager(new GridLayoutManager(this, appGridSpanCount,
                 singleRow ? RecyclerView.HORIZONTAL : RecyclerView.VERTICAL, false) {
             @Override
             protected boolean isLayoutRTL() {
@@ -665,7 +686,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         ((GridLayoutManager) grid.getLayoutManager()).setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
-            @Override public int getSpanSize(int position) { return !singleRow && adapter != null && adapter.isLibraryAt(position) ? COLUMNS : 1; }
+            @Override public int getSpanSize(int position) {
+                return !singleRow && adapter != null && adapter.isLibraryAt(position) ? appGridSpanCount : 1;
+            }
         });
         grid.setHasFixedSize(true);
         grid.setItemAnimator(null);
@@ -695,10 +718,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         Order savedOrder = Order.load(Order.file(this));
         adapter.setSavedOrder(Order.ranks(savedOrder, dockApps), Order.docked(savedOrder, dockApps));
         grid.setAdapter(adapter);
+        appSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String focusedKey = lastFocusedKey;
+                adapter.filterApps(s == null ? "" : s.toString());
+                int target = focusedKey == null ? -1 : adapter.positionOf(focusedKey);
+                if (target < 0 && adapter.appCount() > 0) target = 0;
+                if (target >= 0) {
+                    final int focusPosition = target;
+                    grid.post(() -> {
+                        grid.scrollToPosition(focusPosition);
+                        RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(focusPosition);
+                        if (holder != null) holder.itemView.requestFocus();
+                    });
+                }
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
         // rows_below_dock grid rows under it; the rest of the grid stays below until you press Down.
-        int rowsBelowDock = cfg.rowsBelowDock;
+        // Camera-first TV layout: expose four rows in the right rail before the catalogue submenu.
+        // The right rail has room for several compact rows; anything beyond the visible area
+        // remains reachable through the full App Library.
+        int rowsBelowDock = singleRow ? cfg.rowsBelowDock : 3;
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
@@ -716,6 +760,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (MainActivity.this.dockRow && cfg.dockTitle && rowsBelowDock > 0) want = Math.max(want, (int) (AppAdapter.TITLE_ROOM_DP * density));
             // No dock to push down: the grid starts at the top, with room for the first row's zoom and glass.
             if (!MainActivity.this.dockRow) want = (int) (AppAdapter.TOP_ROOM_DP * density);
+            if (singleRow) want = 0; // compact app dock below the live camera wall
             // A single row never shows the names under its tiles (the title above the row names the app), so the
             // 7dp gap and 22dp label item_app.xml keeps for them would only lift the row: sit it that much lower.
             if (singleRow && !cfg.alwaysShowNames) want += (int) (29 * density);
@@ -837,6 +882,32 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!cfg.showNetworkPill) btnWifi.setVisibility(View.GONE);
         showInputsPill = cfg.showInputsPill;
         showInputsMenuRow = cfg.showInputsPill;
+        View btnRestartInterface = findViewById(R.id.btnRestartInterface);
+        if (btnRestartInterface != null) {
+            btnRestartInterface.setVisibility(View.VISIBLE);
+            btnRestartInterface.setFocusable(true);
+            btnRestartInterface.setClickable(true);
+            btnRestartInterface.setOnClickListener(v -> {
+                btnRestartInterface.setEnabled(false);
+                recreate();
+            });
+            btnRestartInterface.setNextFocusUpId(R.id.btnMoreApps);
+            btnRestartInterface.setNextFocusDownId(R.id.grid);
+            btnRestartInterface.bringToFront();
+        }
+        View btnMoreApps = findViewById(R.id.btnMoreApps);
+        if (btnMoreApps != null) {
+            btnMoreApps.setVisibility(View.VISIBLE);
+            btnMoreApps.setFocusable(true);
+            btnMoreApps.setClickable(true);
+            btnMoreApps.setOnClickListener(v -> onLibraryRequested());
+            btnMoreApps.setNextFocusUpId(R.id.grid);
+            btnMoreApps.setNextFocusDownId(R.id.btnRestartInterface);
+            btnMoreApps.bringToFront();
+        }
+        if (btnRestartInterface != null && (btnMoreApps == null || btnMoreApps.getVisibility() != View.VISIBLE)) {
+            btnRestartInterface.setNextFocusUpId(R.id.grid);
+        }
         btnLibraryTop = findViewById(R.id.btnLibraryTop);
         btnLibraryTop.setOnClickListener(v -> {
             onLibraryRequested();
@@ -1096,6 +1167,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         restartIdleClock();
+        if (cameraWall != null && hasWindowFocus()) {
+            cameraWall.removeCallbacks(cameraResumeRunnable);
+            cameraWall.postDelayed(cameraResumeRunnable, 900);
+        }
         promptsPaused = false;
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         switch (tileRefresh.onResume(packagesChangedSinceRebuild())) {
@@ -1299,6 +1374,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        if (cameraWall != null) {
+            cameraWall.removeCallbacks(cameraResumeRunnable);
+            cameraWall.stop();
+        }
         // No UP reaches a paused Home, so a vendor-key hold it saw go down would still open its app later.
         // Only Home's own share is dropped: a key service that saw the same DOWN keeps its hold.
         RemoteKeys.release(this);
@@ -1363,6 +1442,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (hasFocus) {
             startPendingSettingsReorder();
             if (libraryFocusPending && appLibrary == null) focusLibrary();
+            // Some Android TV builds resume Home before the video SurfaceViews are ready.
+            // Restart only after the Home window has actually regained focus.
+            if (resumed && cameraWall != null) {
+                cameraWall.removeCallbacks(cameraResumeRunnable);
+                cameraWall.postDelayed(cameraResumeRunnable, 900);
+            }
             showCardPrompt();
         } else {
             cancelHoldOk();   // a dialog or another window took the remote while OK was held
@@ -1378,6 +1463,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         unregisterReceiver(packageReceiver);
         if (openOnStartOnWake) unregisterReceiver(wakeReceiver);
         wallpaperPlayer.close();
+        if (cameraWall != null) cameraWall.release();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
@@ -2438,6 +2524,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Horizontal: swallow the key at a row's ends so focus never wraps to the next row or
         // escapes up into the top bar. Mid-row moves fall through to the default focus search.
         if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (!rtlAppGrid && keyCode == KeyEvent.KEYCODE_DPAD_LEFT && position % COLUMNS == 0
+                    && cameraWall != null && cameraWall.focusFirst()) {
+                return true;
+            }
             boolean forward = rtlAppGrid ? keyCode == KeyEvent.KEYCODE_DPAD_LEFT : keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
             if (forward && position == adapter.focusablePosition(count - 1) && adapter.isLibraryAt(count)) {
                 focusLibrary();
@@ -2452,9 +2542,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
             target = position - COLUMNS;
         } else {
-            int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
-            if (position >= lastRowStart) {
-                if (adapter.isLibraryAt(count)) focusLibrary();
+            // The home grid is deliberately limited to four visible rows. Anything beyond
+            // that belongs in the full app catalogue, not in a hidden fifth scroll row.
+            int visibleItems = Math.min(count, 4 * COLUMNS);
+            int firstActionRow = Math.max(0, visibleItems - COLUMNS);
+            if (position >= firstActionRow) {
+                View moreApps = findViewById(R.id.btnMoreApps);
+                if (moreApps != null && moreApps.getVisibility() == View.VISIBLE) {
+                    moreApps.requestFocus();
+                }
                 return true;
             }
             target = Math.min(position + COLUMNS, count - 1);
