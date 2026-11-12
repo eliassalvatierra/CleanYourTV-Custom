@@ -363,6 +363,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean libraryFocusPending;
     private RecyclerView.OnScrollListener pendingFocusScroll;
 
+    private final Runnable cameraResumeRunnable = () -> {
+        if (resumed && hasWindowFocus() && !isFinishing() && cameraWall != null) {
+            cameraWall.restart();
+        }
+    };
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -497,7 +503,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         openOnStartOnWake = OpenOnStart.onWake(cfg.openOnStartChoice, cfg.openOnStartOnWake);
         liveTvAction = cfg.liveTvAction;
         liveTvInputId = cfg.liveTvInputId;
-        appLibraryEnabled = cfg.appLibrary;
+        // The camera-first launcher always exposes the full app catalogue.
+        // A theme overlay must not silently hide the bottom action.
+        appLibraryEnabled = true;
         tileMenuEnabled = cfg.tileMenu;
         inputAction = cfg.inputAction;
         inputSources = cfg.inputSources;
@@ -876,19 +884,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         showInputsMenuRow = cfg.showInputsPill;
         View btnRestartInterface = findViewById(R.id.btnRestartInterface);
         if (btnRestartInterface != null) {
+            btnRestartInterface.setVisibility(View.VISIBLE);
+            btnRestartInterface.setFocusable(true);
+            btnRestartInterface.setClickable(true);
             btnRestartInterface.setOnClickListener(v -> {
                 btnRestartInterface.setEnabled(false);
                 recreate();
             });
             btnRestartInterface.setNextFocusUpId(R.id.btnMoreApps);
             btnRestartInterface.setNextFocusDownId(R.id.grid);
+            btnRestartInterface.bringToFront();
         }
         View btnMoreApps = findViewById(R.id.btnMoreApps);
         if (btnMoreApps != null) {
-            btnMoreApps.setVisibility(cfg.appLibrary ? View.VISIBLE : View.GONE);
+            btnMoreApps.setVisibility(View.VISIBLE);
+            btnMoreApps.setFocusable(true);
+            btnMoreApps.setClickable(true);
             btnMoreApps.setOnClickListener(v -> onLibraryRequested());
             btnMoreApps.setNextFocusUpId(R.id.grid);
             btnMoreApps.setNextFocusDownId(R.id.btnRestartInterface);
+            btnMoreApps.bringToFront();
         }
         if (btnRestartInterface != null && (btnMoreApps == null || btnMoreApps.getVisibility() != View.VISIBLE)) {
             btnRestartInterface.setNextFocusUpId(R.id.grid);
@@ -1152,9 +1167,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         restartIdleClock();
-        if (cameraWall != null) cameraWall.postDelayed(() -> {
-            if (resumed && !isFinishing() && cameraWall != null) cameraWall.restart();
-        }, 500);
+        if (cameraWall != null && hasWindowFocus()) {
+            cameraWall.removeCallbacks(cameraResumeRunnable);
+            cameraWall.postDelayed(cameraResumeRunnable, 900);
+        }
         promptsPaused = false;
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         switch (tileRefresh.onResume(packagesChangedSinceRebuild())) {
@@ -1358,7 +1374,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         resumed = false;
-        if (cameraWall != null) cameraWall.stop();
+        if (cameraWall != null) {
+            cameraWall.removeCallbacks(cameraResumeRunnable);
+            cameraWall.stop();
+        }
         // No UP reaches a paused Home, so a vendor-key hold it saw go down would still open its app later.
         // Only Home's own share is dropped: a key service that saw the same DOWN keeps its hold.
         RemoteKeys.release(this);
@@ -1423,6 +1442,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (hasFocus) {
             startPendingSettingsReorder();
             if (libraryFocusPending && appLibrary == null) focusLibrary();
+            // Some Android TV builds resume Home before the video SurfaceViews are ready.
+            // Restart only after the Home window has actually regained focus.
+            if (resumed && cameraWall != null) {
+                cameraWall.removeCallbacks(cameraResumeRunnable);
+                cameraWall.postDelayed(cameraResumeRunnable, 900);
+            }
             showCardPrompt();
         } else {
             cancelHoldOk();   // a dialog or another window took the remote while OK was held
@@ -2517,10 +2542,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (position >= lastRowStart) {
                 View moreApps = findViewById(R.id.btnMoreApps);
                 View restartInterface = findViewById(R.id.btnRestartInterface);
-                if (moreApps != null && moreApps.getVisibility() == View.VISIBLE && moreApps.isFocusable()) {
-                    moreApps.requestFocus();
-                } else if (restartInterface != null && restartInterface.getVisibility() == View.VISIBLE) {
-                    restartInterface.requestFocus();
+                View bottomAction = moreApps != null && moreApps.getVisibility() == View.VISIBLE
+                        ? moreApps : restartInterface;
+                if (bottomAction != null && bottomAction.getVisibility() == View.VISIBLE) {
+                    bottomAction.bringToFront();
+                    bottomAction.setFocusable(true);
+                    bottomAction.setClickable(true);
+                    bottomAction.post(() -> {
+                        if (!isFinishing() && bottomAction.getVisibility() == View.VISIBLE) {
+                            bottomAction.requestFocus();
+                        }
+                    });
                 }
                 return true;
             }
