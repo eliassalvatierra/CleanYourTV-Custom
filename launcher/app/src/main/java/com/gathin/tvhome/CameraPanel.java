@@ -38,6 +38,7 @@ public class CameraPanel extends LinearLayout {
     private final LinearLayout grid;
     private final TextView emptyView;
     private final View editButton;
+    private final View allCamerasButton;
     private final List<Tile> tiles = new ArrayList<>();
     private final float density;
     private boolean started;
@@ -52,7 +53,9 @@ public class CameraPanel extends LinearLayout {
         grid = findViewById(R.id.cameraGrid);
         emptyView = findViewById(R.id.cameraEmpty);
         editButton = findViewById(R.id.cameraEdit);
+        allCamerasButton = findViewById(R.id.cameraAll);
         editButton.setOnClickListener(v -> showEditDialog());
+        allCamerasButton.setOnClickListener(v -> openAllFullscreen());
         emptyView.setOnClickListener(v -> showEditDialog());
     }
 
@@ -94,6 +97,7 @@ public class CameraPanel extends LinearLayout {
         List<String> urls = CameraStore.load(getContext());
         emptyView.setVisibility(urls.isEmpty() ? VISIBLE : GONE);
         int count = urls.size();
+        allCamerasButton.setEnabled(count > 0);
         if (count == 0) return;
         int columns = count == 1 ? 1 : 2;
         int rows = (count + columns - 1) / columns;
@@ -195,6 +199,15 @@ public class CameraPanel extends LinearLayout {
         states.addState(new int[]{android.R.attr.state_focused}, focused);
         states.addState(new int[]{}, normal);
         return states;
+    }
+
+    private void openAllFullscreen() {
+        ArrayList<String> urls = new ArrayList<>(CameraStore.load(getContext()));
+        if (urls.isEmpty()) return;
+        Intent intent = new Intent(getContext(), CameraFullscreenActivity.class);
+        intent.putStringArrayListExtra(CameraFullscreenActivity.EXTRA_URLS, urls);
+        intent.putExtra(CameraFullscreenActivity.EXTRA_ALL_CAMERAS, true);
+        getContext().startActivity(intent);
     }
 
     private void openFullscreen(List<String> urls, int index) {
