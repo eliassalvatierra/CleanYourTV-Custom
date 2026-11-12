@@ -40,6 +40,7 @@ public final class CameraWall extends LinearLayout {
     private LibVLC libVLC;
     private boolean released;
     private final boolean fullScreen;
+    private final Runnable startRunnable = this::start;
 
     public CameraWall(Context context, AttributeSet attrs) {
         this(context, false);
@@ -303,7 +304,20 @@ public final class CameraWall extends LinearLayout {
         }
     }
 
+    public void restart() {
+        stop();
+        if (libVLC != null) {
+            try { libVLC.release(); } catch (RuntimeException ignored) {}
+            libVLC = null;
+        }
+        // Recreate LibVLC after another app has covered Home: TV devices can invalidate
+        // the native video surfaces while the activity is paused.
+        removeCallbacks(startRunnable);
+        postDelayed(startRunnable, 650);
+    }
+
     public void stop() {
+        removeCallbacks(startRunnable);
         for (int i = 0; i < 4; i++) {
             if (players[i] != null) {
                 MediaPlayer player = players[i];
