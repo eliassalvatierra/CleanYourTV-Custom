@@ -2538,21 +2538,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
             target = position - COLUMNS;
         } else {
-            int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
-            if (position >= lastRowStart) {
+            // The home grid is deliberately limited to four visible rows. Anything beyond
+            // that belongs in the full app catalogue, not in a hidden fifth scroll row.
+            int visibleRows = 4;
+            int firstActionRow = Math.max(0, visibleRows * COLUMNS - COLUMNS);
+            if (position >= firstActionRow) {
                 View moreApps = findViewById(R.id.btnMoreApps);
-                View restartInterface = findViewById(R.id.btnRestartInterface);
-                View bottomAction = moreApps != null && moreApps.getVisibility() == View.VISIBLE
-                        ? moreApps : restartInterface;
-                if (bottomAction != null && bottomAction.getVisibility() == View.VISIBLE) {
-                    bottomAction.bringToFront();
-                    bottomAction.setFocusable(true);
-                    bottomAction.setClickable(true);
-                    bottomAction.post(() -> {
-                        if (!isFinishing() && bottomAction.getVisibility() == View.VISIBLE) {
-                            bottomAction.requestFocus();
-                        }
-                    });
+                if (moreApps != null && moreApps.getVisibility() == View.VISIBLE) {
+                    moreApps.requestFocus();
                 }
                 return true;
             }
