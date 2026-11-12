@@ -151,6 +151,7 @@
     <string name="clock_format_24">24 horas</string>
     <string name="cameras">Cámaras</string>
     <string name="cameras_edit">Editar</string>
+    <string name="cameras_all">Ver las 4</string>
     <string name="cameras_edit_title">Cámaras (RTSP)</string>
     <string name="cameras_hint">Una dirección RTSP por cámara, hasta 4. Conviene usar el stream de baja resolución de cada cámara: gasta menos memoria y arranca más rápido.</string>
     <string name="cameras_empty">Todavía no hay cámaras. Presiona OK para agregar direcciones RTSP.</string>
