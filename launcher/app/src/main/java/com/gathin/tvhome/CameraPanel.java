@@ -11,7 +11,6 @@ import android.text.InputType;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
@@ -20,6 +19,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import org.videolan.libvlc.util.VLCVideoLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,13 +56,11 @@ public class CameraPanel extends LinearLayout {
         emptyView.setOnClickListener(v -> showEditDialog());
     }
 
-    /** Home is in front: build the tiles from the saved addresses and start every stream. */
     void start() {
         started = true;
         buildTiles();
     }
 
-    /** Home left the front (another app, the full screen, the screen going off): let go of every stream. */
     void stop() {
         started = false;
         restoreIndex = -1;
@@ -72,7 +71,6 @@ public class CameraPanel extends LinearLayout {
         grid.removeAllViews();
     }
 
-    /** Puts focus on the first camera (or on what stands in for it). False if there is nothing to focus. */
     boolean focusFirst() {
         if (!tiles.isEmpty()) return tiles.get(0).view.requestFocus();
         if (emptyView.getVisibility() == VISIBLE) return emptyView.requestFocus();
@@ -126,7 +124,6 @@ public class CameraPanel extends LinearLayout {
         restoreIndex = -1;
     }
 
-    /** One camera: a focusable cell holding the picture, its name, and a "connecting" or "no signal" line. */
     private final class Tile {
         final FrameLayout view;
         final CameraPlayer player;
@@ -141,8 +138,8 @@ public class CameraPanel extends LinearLayout {
             view.setClickable(true);
 
             AspectFrame frame = new AspectFrame(context);
-            TextureView texture = new TextureView(context);
-            frame.addView(texture, new FrameLayout.LayoutParams(
+            VLCVideoLayout video = new VLCVideoLayout(context);
+            frame.addView(video, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             view.addView(frame, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -168,7 +165,7 @@ public class CameraPanel extends LinearLayout {
             view.addView(status, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
 
-            player = new CameraPlayer(context, urls.get(index), true, texture, frame, message -> {
+            player = new CameraPlayer(context, urls.get(index), true, video, frame, message -> {
                 if (message == null) {
                     status.setVisibility(GONE);
                 } else {
@@ -207,7 +204,6 @@ public class CameraPanel extends LinearLayout {
         getContext().startActivity(intent);
     }
 
-    /** One address per camera, up to CameraStore.MAX. Saving rebuilds the tiles right away. */
     private void showEditDialog() {
         Context context = getContext();
         List<String> current = CameraStore.load(context);
