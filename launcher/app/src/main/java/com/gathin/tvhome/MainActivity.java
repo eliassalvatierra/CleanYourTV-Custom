@@ -734,7 +734,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Camera-first TV layout: expose four rows in the right rail before the catalogue submenu.
         // The right rail has room for several compact rows; anything beyond the visible area
         // remains reachable through the full App Library.
-        int rowsBelowDock = singleRow ? cfg.rowsBelowDock : (dockRow ? 3 : 4);
+        int rowsBelowDock = singleRow ? cfg.rowsBelowDock : 3;
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
