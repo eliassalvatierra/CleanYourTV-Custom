@@ -732,7 +732,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
         // rows_below_dock grid rows under it; the rest of the grid stays below until you press Down.
-        int rowsBelowDock = cfg.rowsBelowDock;
+        // Camera-first TV layout: expose four rows in the right rail before the catalogue submenu.
+        int rowsBelowDock = singleRow ? cfg.rowsBelowDock : Math.max(cfg.rowsBelowDock, 3);
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
@@ -872,6 +873,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!cfg.showNetworkPill) btnWifi.setVisibility(View.GONE);
         showInputsPill = cfg.showInputsPill;
         showInputsMenuRow = cfg.showInputsPill;
+        View btnMoreApps = findViewById(R.id.btnMoreApps);
+        if (btnMoreApps != null) {
+            btnMoreApps.setVisibility(cfg.appLibrary ? View.VISIBLE : View.GONE);
+            btnMoreApps.setOnClickListener(v -> onLibraryRequested());
+        }
         btnLibraryTop = findViewById(R.id.btnLibraryTop);
         btnLibraryTop.setOnClickListener(v -> {
             onLibraryRequested();
@@ -1131,7 +1137,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         restartIdleClock();
-        if (cameraWall != null) cameraWall.start();
+        if (cameraWall != null) root.post(() -> {
+            if (resumed && !isFinishing() && cameraWall != null) cameraWall.start();
+        });
         promptsPaused = false;
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         switch (tileRefresh.onResume(packagesChangedSinceRebuild())) {
