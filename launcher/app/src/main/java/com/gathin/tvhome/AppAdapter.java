@@ -233,7 +233,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.animations = cfg.animations;
         this.advancedEffects = cfg.animations && cfg.advancedEffects;
         this.showHomeSettings = cfg.showHomeSettingsShortcut;
-        this.showLibrary = LibraryApps.showPill(cfg.appLibrary, cfg.libraryButton, cfg.showLibraryPill);
+        // The separate App library footer is hidden; the More apps pill below the grid remains its entry point.
+        this.showLibrary = false;
         this.reducedMotion = cfg.reducedMotion;
         this.focusOvershoot = cfg.focusOvershoot;
         this.rowsBelowDock = cfg.rowsBelowDock;
