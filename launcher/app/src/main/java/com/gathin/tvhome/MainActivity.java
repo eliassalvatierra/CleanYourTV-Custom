@@ -2540,8 +2540,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } else {
             // The home grid is deliberately limited to four visible rows. Anything beyond
             // that belongs in the full app catalogue, not in a hidden fifth scroll row.
-            int visibleRows = 4;
-            int firstActionRow = Math.max(0, visibleRows * COLUMNS - COLUMNS);
+            int visibleItems = Math.min(count, 4 * COLUMNS);
+            int firstActionRow = Math.max(0, visibleItems - COLUMNS);
             if (position >= firstActionRow) {
                 View moreApps = findViewById(R.id.btnMoreApps);
                 if (moreApps != null && moreApps.getVisibility() == View.VISIBLE) {
