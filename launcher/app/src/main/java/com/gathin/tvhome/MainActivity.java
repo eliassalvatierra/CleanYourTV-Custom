@@ -873,6 +873,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!cfg.showNetworkPill) btnWifi.setVisibility(View.GONE);
         showInputsPill = cfg.showInputsPill;
         showInputsMenuRow = cfg.showInputsPill;
+        View btnRestartInterface = findViewById(R.id.btnRestartInterface);
+        if (btnRestartInterface != null) {
+            btnRestartInterface.setOnClickListener(v -> {
+                btnRestartInterface.setEnabled(false);
+                recreate();
+            });
+        }
         View btnMoreApps = findViewById(R.id.btnMoreApps);
         if (btnMoreApps != null) {
             btnMoreApps.setVisibility(cfg.appLibrary ? View.VISIBLE : View.GONE);
