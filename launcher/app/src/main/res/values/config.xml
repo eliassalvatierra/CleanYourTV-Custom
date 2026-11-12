@@ -285,7 +285,7 @@
     <!-- The dock as its own row: a lighter band, no names under the tiles, parked low on the screen with the top
          shelf above it. false makes the dock apps simply the first tiles of one plain grid (still in dock_apps
          order, no empty slots), with names under every tile and the glow behind every focused tile. -->
-    <bool name="dock_row">true</bool>
+    <bool name="dock_row">false</bool>
     <!-- Inputs, Wi-Fi and Settings folded into one round gear at the top right, like Google TV: OK drops a menu
          with the three, hold OK keeps the launcher menu. Off by default; a theme can set "top_menu": true. -->
     <bool name="top_menu">false</bool>
@@ -392,11 +392,11 @@
 
     <!-- The focused dock app's name in large type above the dock. false keeps only the glow, which leaves room
          for bigger tiles when rows_below_dock is 2 or 3. -->
-    <bool name="dock_title">true</bool>
+    <bool name="dock_title">false</bool>
 
     <!-- Tiles per row in the grid; the dock always has this many slots. Tiles are 180dp wide at 4 columns and
          shrink to fit from 5 up (about 144dp at 5, 117dp at 6 on a 1080p TV). -->
-    <integer name="columns">4</integer>
+    <integer name="columns">2</integer>
 
     <!-- Basic motion is on; advanced effects are opt-in in the launcher's own Settings screen. -->
     <bool name="animations">true</bool>
@@ -413,7 +413,7 @@
     <bool name="uniform_tiles">false</bool>
     <!-- Optional direct Home picker in the app library: OK toggles the checkmark, checked apps first.
          Off by default; a theme can set "app_library_selection": true (also needs app_library). -->
-    <bool name="app_library_selection">false</bool>
+    <bool name="app_library_selection">true</bool>
     <!-- OK opens every app in the library, not only the apps on Home: for a library that holds the apps a theme
          keeps off Home with hidden_apps. Hold OK still offers Add to Home. app_library_selection wins when both are
          on. Off by default; a theme can set "library_ok_opens": true (also needs app_library). -->
