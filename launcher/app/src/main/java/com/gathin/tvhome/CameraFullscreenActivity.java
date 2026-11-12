@@ -5,12 +5,13 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import org.videolan.libvlc.util.VLCVideoLayout;
 
 import java.util.ArrayList;
 
@@ -27,7 +28,7 @@ public class CameraFullscreenActivity extends Activity {
     private ArrayList<String> urls = new ArrayList<>();
     private int index;
     private AspectFrame frame;
-    private TextureView texture;
+    private VLCVideoLayout video;
     private TextView label;
     private TextView status;
     private CameraPlayer player;
@@ -48,6 +49,9 @@ public class CameraFullscreenActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         frame = new AspectFrame(this);
+        video = new VLCVideoLayout(this);
+        frame.addView(video, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(frame, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -104,17 +108,12 @@ public class CameraFullscreenActivity extends Activity {
         return super.onKeyDown(keyCode, event);
     }
 
-    /** Plays camera i on a new surface: a fresh TextureView and a fresh player each time. */
     private void show(int i) {
         releasePlayer();
         index = i;
         label.setText(getString(R.string.camera_n, i + 1));
         frame.setAspect(0);
-        frame.removeAllViews();
-        texture = new TextureView(this);
-        frame.addView(texture, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        player = new CameraPlayer(this, urls.get(i), false, texture, frame, message -> {
+        player = new CameraPlayer(this, urls.get(i), false, video, frame, message -> {
             if (message == null) {
                 status.setVisibility(View.GONE);
             } else {
