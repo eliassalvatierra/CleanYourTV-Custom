@@ -445,7 +445,7 @@
                     android:layout_gravity="bottom"
                     android:layout_marginStart="4dp"
                     android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="4dp"
+                    android:layout_marginBottom="52dp"
                     android:background="@drawable/glass_panel"
                     android:clickable="true"
                     android:focusable="true"
@@ -456,6 +456,26 @@
                     android:textSize="12sp"
                     android:fontFamily="@string/font_medium"
                     android:letterSpacing="0.10"
+                    android:textAllCaps="true" />
+
+                <TextView
+                    android:id="@+id/btnRestartInterface"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_gravity="bottom"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:background="@drawable/glass_panel"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:nextFocusUp="@id/btnMoreApps"
+                    android:text="REINICIAR INTERFAZ"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="11sp"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.06"
                     android:textAllCaps="true" />
             </FrameLayout>
         </LinearLayout>
