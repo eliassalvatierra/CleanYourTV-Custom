@@ -2524,6 +2524,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Horizontal: swallow the key at a row's ends so focus never wraps to the next row or
         // escapes up into the top bar. Mid-row moves fall through to the default focus search.
         if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (!rtlAppGrid && keyCode == KeyEvent.KEYCODE_DPAD_LEFT && position % COLUMNS == 0
+                    && cameraWall != null && cameraWall.focusFirst()) {
+                return true;
+            }
             boolean forward = rtlAppGrid ? keyCode == KeyEvent.KEYCODE_DPAD_LEFT : keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
             if (forward && position == adapter.focusablePosition(count - 1) && adapter.isLibraryAt(count)) {
                 focusLibrary();
