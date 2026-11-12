@@ -161,6 +161,7 @@
     <!-- Home's camera panel (CameraPanel) and the two buttons under the app list. -->
     <string name="cameras">Cameras</string>
     <string name="cameras_edit">Edit</string>
+    <string name="cameras_all">All cameras</string>
     <string name="cameras_edit_title">Cameras (RTSP)</string>
     <string name="cameras_hint">One RTSP address per camera, up to 4. Use each camera\'s low-resolution stream: it needs less memory and starts faster.</string>
     <string name="cameras_empty">No cameras yet. Press OK to add RTSP addresses.</string>
