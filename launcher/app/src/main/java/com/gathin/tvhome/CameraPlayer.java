@@ -42,6 +42,8 @@ final class CameraPlayer {
     private LibVLC libVlc;
     private MediaPlayer player;
     private boolean released;
+    // Once playback has started, later buffering events must not cover an already visible image.
+    private boolean streamStarted;
 
     CameraPlayer(Context context, String url, boolean muted, VLCVideoLayout videoLayout,
                  AspectFrame frame, Status status) {
@@ -74,6 +76,7 @@ final class CameraPlayer {
     void start() {
         if (released || player != null) return;
 
+        streamStarted = false;
         status.onStatus(context.getString(R.string.camera_connecting));
         try {
             libVlc = acquireEngine(context);
@@ -83,18 +86,23 @@ final class CameraPlayer {
                 switch (event.type) {
                     case MediaPlayer.Event.Opening:
                     case MediaPlayer.Event.Buffering:
-                        status.onStatus(context.getString(R.string.camera_connecting));
+                        if (!streamStarted) {
+                            status.onStatus(context.getString(R.string.camera_connecting));
+                        }
                         break;
                     case MediaPlayer.Event.Playing:
+                        streamStarted = true;
                         status.onStatus(null);
                         break;
                     case MediaPlayer.Event.EncounteredError:
+                        streamStarted = false;
                         Log.w(TAG, "LibVLC could not play camera stream (RTSP/H.264)");
                         status.onStatus(context.getString(R.string.camera_no_signal));
                         scheduleRetry();
                         break;
                     case MediaPlayer.Event.Stopped:
                         if (!released) {
+                            streamStarted = false;
                             status.onStatus(context.getString(R.string.camera_no_signal));
                             scheduleRetry();
                         }
