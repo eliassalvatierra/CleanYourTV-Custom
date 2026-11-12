@@ -6,49 +6,53 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.TextureView;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import org.videolan.libvlc.LibVLC;
-import org.videolan.libvlc.Media;
-import org.videolan.libvlc.MediaPlayer;
-import org.videolan.libvlc.util.VLCVideoLayout;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.rtsp.RtspMediaSource;
 
 import java.util.ArrayList;
 
 /**
- * Four-camera Hikvision wall using LibVLC. This replaces Media3 RTSP because
- * some Hikvision SDP responses omit fmtp parameters that Media3 rejects.
- * Credentials remain in the app's private SharedPreferences.
+ * Four-camera Hikvision wall using Media3 RTSP. This is an intentional retry of Media3:
+ * the previous implementation rejected some Hikvision SDP responses (missing fmtp).
+ * Existing DVR credentials and channel mapping are retained.
  */
+@SuppressWarnings("UnsafeOptInUsageError")
 public final class CameraWall extends LinearLayout {
     private static final String PREFS = "local_camera_wall";
     private static final String KEY_HOST = "host", KEY_USER = "user", KEY_PASS = "pass";
     private static final String[] CHANNELS = {"102", "302", "502", "702"};
+    private static final long RETRY_MS = 6000L;
 
-    private final VLCVideoLayout[] surfaces = new VLCVideoLayout[4];
+    private final AspectFrame[] frames = new AspectFrame[4];
+    private final TextureView[] textures = new TextureView[4];
+    private final ExoPlayer[] players = new ExoPlayer[4];
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private LinearLayout firstRow;
     private LinearLayout secondRow;
-    private final MediaPlayer[] players = new MediaPlayer[4];
     private final TextView status;
-    private LibVLC libVLC;
     private boolean released;
     private final boolean fullScreen;
-    private final Runnable startRunnable = this::start;
 
-    public CameraWall(Context context, AttributeSet attrs) {
-        this(context, false);
-    }
-
-    public CameraWall(Context context) {
-        this(context, false);
-    }
+    public CameraWall(Context context, AttributeSet attrs) { this(context, false); }
+    public CameraWall(Context context) { this(context, false); }
 
     public CameraWall(Context context, boolean fullScreen) {
         super(context);
@@ -89,24 +93,25 @@ public final class CameraWall extends LinearLayout {
         heading.setVisibility(fullScreen ? GONE : VISIBLE);
         addView(heading, new LayoutParams(LayoutParams.MATCH_PARENT, dp(34)));
 
-        LinearLayout row1 = new LinearLayout(context);
-        LinearLayout row2 = new LinearLayout(context);
-        firstRow = row1;
-        secondRow = row2;
-        row1.setGravity(Gravity.CENTER);
-        row2.setGravity(Gravity.CENTER);
-        row1.setOrientation(HORIZONTAL);
-        row2.setOrientation(HORIZONTAL);
-        addView(row1, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
-        addView(row2, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
+        firstRow = new LinearLayout(context);
+        secondRow = new LinearLayout(context);
+        firstRow.setGravity(Gravity.CENTER);
+        secondRow.setGravity(Gravity.CENTER);
+        firstRow.setOrientation(HORIZONTAL);
+        secondRow.setOrientation(HORIZONTAL);
+        addView(firstRow, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
+        addView(secondRow, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
         for (int i = 0; i < 4; i++) {
-            VLCVideoLayout surface = new VLCVideoLayout(context);
-            surface.setBackgroundColor(0xFF080B10);
-            surface.setFocusable(false);
-            surfaces[i] = surface;
+            AspectFrame frame = new AspectFrame(context);
+            frame.setBackgroundColor(0xFF080B10);
+            TextureView texture = new TextureView(context);
+            frame.addView(texture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            frame.setFocusable(false);
+            frames[i] = frame;
+            textures[i] = texture;
             LayoutParams cell = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
             cell.setMargins(dp(2), dp(2), dp(2), dp(2));
-            (i < 2 ? row1 : row2).addView(surface, cell);
+            (i < 2 ? firstRow : secondRow).addView(frame, cell);
         }
 
         status = new TextView(context);
@@ -131,7 +136,6 @@ public final class CameraWall extends LinearLayout {
         int cellWidth;
         int cellHeight;
         if (fullScreen) {
-            // A 16:9 TV split into four equal cells gives each camera its native 16:9 viewport.
             cellWidth = Math.max(0, (getWidth() - dp(8)) / 2);
             cellHeight = Math.max(0, (getHeight() - dp(8)) / 2);
         } else {
@@ -142,12 +146,11 @@ public final class CameraWall extends LinearLayout {
         }
         if (cellWidth <= 0 || cellHeight <= 0) return;
         for (int i = 0; i < 4; i++) {
-            VLCVideoLayout surface = surfaces[i];
-            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) surface.getLayoutParams();
+            LayoutParams params = (LayoutParams) frames[i].getLayoutParams();
             if (params.width != cellWidth || params.height != cellHeight) {
                 params.width = cellWidth;
                 params.height = cellHeight;
-                surface.setLayoutParams(params);
+                frames[i].setLayoutParams(params);
             }
         }
     }
@@ -217,19 +220,90 @@ public final class CameraWall extends LinearLayout {
                 }).show();
     }
 
-    private void ensureVlc() {
-        if (libVLC != null) return;
-        ArrayList<String> options = new ArrayList<>();
-        options.add("--no-drop-late-frames");
-        options.add("--no-skip-frames");
-        options.add("--network-caching=500");
-        options.add("--rtsp-tcp");
-        libVLC = new LibVLC(getContext().getApplicationContext(), options);
+    private String streamUrl(String host, String user, String pass, int index) {
+        String authority = Uri.encode(user) + ":" + Uri.encode(pass) + "@" + host + ":554";
+        return new Uri.Builder().scheme("rtsp").encodedAuthority(authority)
+                .appendPath("Streaming").appendPath("Channels").appendPath(CHANNELS[index])
+                .build().toString();
+    }
+
+    private void startPlayer(int index, String url) {
+        if (released || players[index] != null) return;
+        status.setText("Conectando cámara " + (index + 1) + "…");
+        status.setVisibility(fullScreen ? GONE : VISIBLE);
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(1500, 3000, 500, 1000).build();
+        ExoPlayer player = new ExoPlayer.Builder(getContext().getApplicationContext())
+                .setLoadControl(loadControl).build();
+        players[index] = player;
+        player.setVolume(0f);
+        player.setVideoTextureView(textures[index]);
+        player.addListener(new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_READY) {
+                    status.post(() -> {
+                        if (!fullScreen) status.setVisibility(GONE);
+                    });
+                } else if (state == Player.STATE_BUFFERING) {
+                    status.post(() -> {
+                        if (!fullScreen) {
+                            status.setText("Conectando cámara " + (index + 1) + "…");
+                            status.setVisibility(VISIBLE);
+                        }
+                    });
+                } else if (state == Player.STATE_ENDED) {
+                    scheduleRetry(index, url);
+                }
+            }
+
+            @Override
+            public void onVideoSizeChanged(VideoSize size) {
+                if (size.width > 0 && size.height > 0) {
+                    float aspect = size.width * size.pixelWidthHeightRatio / size.height;
+                    frames[index].setAspect(aspect);
+                }
+            }
+
+            @Override
+            public void onRenderedFirstFrame() {
+                status.post(() -> {
+                    if (!fullScreen) status.setVisibility(GONE);
+                });
+            }
+
+            @Override
+            public void onPlayerError(PlaybackException error) {
+                Log.e("CameraWall", "Canal " + (index + 1) + ": Media3 RTSP falló: "
+                        + error.getErrorCodeName());
+                status.post(() -> {
+                    if (!fullScreen) {
+                        status.setText("Sin señal en cámara " + (index + 1) + ". Reintentando…");
+                        status.setVisibility(VISIBLE);
+                    }
+                });
+                scheduleRetry(index, url);
+            }
+        });
+        player.setMediaSource(new RtspMediaSource.Factory().setForceUseRtpTcp(true)
+                .createMediaSource(MediaItem.fromUri(url)));
+        player.setPlayWhenReady(true);
+        player.prepare();
+    }
+
+    private void scheduleRetry(int index, String url) {
+        handler.removeCallbacksAndMessages(null);
+        handler.postDelayed(() -> {
+            if (released) return;
+            ExoPlayer old = players[index];
+            players[index] = null;
+            if (old != null) old.release();
+            startPlayer(index, url);
+        }, RETRY_MS);
     }
 
     public void start() {
         if (released) return;
-
         String host = prefs().getString(KEY_HOST, "").trim();
         String user = prefs().getString(KEY_USER, "");
         String pass = prefs().getString(KEY_PASS, "");
@@ -237,108 +311,40 @@ public final class CameraWall extends LinearLayout {
             updateStatus();
             return;
         }
-
-        try {
-            ensureVlc();
-        } catch (RuntimeException error) {
-            Log.e("CameraWall", "No se pudo inicializar LibVLC: " + error.getClass().getSimpleName());
-            status.setText("No se pudo iniciar el motor de video.");
-            status.setVisibility(VISIBLE);
-            return;
-        }
-
-        for (int i = 0; i < 4; i++) {
-            if (players[i] != null) continue;
-            final int channel = i + 1;
-            MediaPlayer player = null;
-            Media media = null;
-            try {
-                Uri uri = new Uri.Builder().scheme("rtsp")
-                        .encodedAuthority(Uri.encode(user) + ":" + Uri.encode(pass) + "@" + host + ":554")
-                        .appendPath("Streaming").appendPath("Channels")
-                        .appendPath(CHANNELS[i]).build();
-
-                player = new MediaPlayer(libVLC);
-                player.attachViews(surfaces[i], null, false, false);
-                player.setEventListener(event -> {
-                    if (event.type == MediaPlayer.Event.Playing) {
-                        Log.i("CameraWall", "Canal " + channel + ": reproducción lista");
-                        status.post(() -> {
-                            status.setText("Cámaras conectadas mediante RTSP.");
-                            status.setVisibility(VISIBLE);
-                        });
-                    } else if (event.type == MediaPlayer.Event.EncounteredError) {
-                        Log.e("CameraWall", "Canal " + channel + ": LibVLC informó un error RTSP/decodificación");
-                        status.post(() -> {
-                            status.setText("No se pudo reproducir la cámara " + channel + ". Revisá el stream del DVR.");
-                            status.setVisibility(VISIBLE);
-                        });
-                    }
-                });
-
-                media = new Media(libVLC, uri);
-                media.addOption(":rtsp-tcp");
-                media.addOption(":network-caching=500");
-                media.addOption(":no-audio");
-                media.addOption(":avcodec-hw=any");
-                player.setMedia(media);
-                media.release();
-                media = null;
-
-                players[i] = player;
-                Log.i("CameraWall", "Iniciando canal físico " + (i * 2 + 1));
-                player.play();
-            } catch (RuntimeException error) {
-                Log.e("CameraWall", "Canal " + channel + ": error al iniciar LibVLC ("
-                        + error.getClass().getSimpleName() + ")");
-                if (media != null) media.release();
-                if (player != null) {
-                    try { player.stop(); } catch (RuntimeException ignored) {}
-                    try { player.detachViews(); } catch (RuntimeException ignored) {}
-                    player.release();
-                }
-                players[i] = null;
-                status.setText("Error al iniciar la cámara " + channel + ".");
-                status.setVisibility(VISIBLE);
-            }
-        }
+        for (int i = 0; i < 4; i++) startPlayer(i, streamUrl(host, user, pass, i));
     }
 
     public void restart() {
         if (released) return;
         stop();
-        if (libVLC != null) {
-            try { libVLC.release(); } catch (RuntimeException ignored) {}
-            libVLC = null;
-        }
-
-        // Rebuild the native SurfaceViews as well as LibVLC. Some Android TV devices
-        // keep the old VLCVideoLayout attached after returning from another Activity,
-        // leaving every stream black even though the RTSP players have restarted.
-        firstRow.removeAllViews();
-        secondRow.removeAllViews();
         for (int i = 0; i < 4; i++) {
-            VLCVideoLayout surface = new VLCVideoLayout(getContext());
-            surface.setBackgroundColor(0xFF080B10);
-            surface.setFocusable(false);
-            surfaces[i] = surface;
+            LinearLayout parent = (LinearLayout) frames[i].getParent();
+            if (parent != null) parent.removeView(frames[i]);
+            AspectFrame frame = new AspectFrame(getContext());
+            frame.setBackgroundColor(0xFF080B10);
+            TextureView texture = new TextureView(getContext());
+            frame.addView(texture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            frames[i] = frame;
+            textures[i] = texture;
             LayoutParams cell = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
             cell.setMargins(dp(2), dp(2), dp(2), dp(2));
-            (i < 2 ? firstRow : secondRow).addView(surface, cell);
+            (i < 2 ? firstRow : secondRow).addView(frame, cell);
         }
         requestLayout();
-        removeCallbacks(startRunnable);
-        postDelayed(startRunnable, 900);
+        removeCallbacks(restartRunnable);
+        postDelayed(restartRunnable, 900);
     }
 
+    private final Runnable restartRunnable = this::start;
+
     public void stop() {
-        removeCallbacks(startRunnable);
+        handler.removeCallbacksAndMessages(null);
+        removeCallbacks(restartRunnable);
         for (int i = 0; i < 4; i++) {
             if (players[i] != null) {
-                MediaPlayer player = players[i];
+                ExoPlayer player = players[i];
                 players[i] = null;
-                try { player.stop(); } catch (RuntimeException ignored) {}
-                try { player.detachViews(); } catch (RuntimeException ignored) {}
+                player.stop();
                 player.release();
             }
         }
@@ -346,10 +352,6 @@ public final class CameraWall extends LinearLayout {
 
     public void release() {
         stop();
-        if (libVLC != null) {
-            libVLC.release();
-            libVLC = null;
-        }
         released = true;
     }
 }
