@@ -45,6 +45,7 @@ public final class CameraWall extends LinearLayout {
     private final TextureView[] textures = new TextureView[4];
     private final ExoPlayer[] players = new ExoPlayer[4];
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable[] retryRunnables = new Runnable[4];
     private LinearLayout firstRow;
     private LinearLayout secondRow;
     private final TextView status;
@@ -292,14 +293,17 @@ public final class CameraWall extends LinearLayout {
     }
 
     private void scheduleRetry(int index, String url) {
-        handler.removeCallbacksAndMessages(null);
-        handler.postDelayed(() -> {
+        if (retryRunnables[index] != null) handler.removeCallbacks(retryRunnables[index]);
+        Runnable retry = () -> {
+            retryRunnables[index] = null;
             if (released) return;
             ExoPlayer old = players[index];
             players[index] = null;
             if (old != null) old.release();
             startPlayer(index, url);
-        }, RETRY_MS);
+        };
+        retryRunnables[index] = retry;
+        handler.postDelayed(retry, RETRY_MS);
     }
 
     public void start() {
@@ -338,9 +342,12 @@ public final class CameraWall extends LinearLayout {
     private final Runnable restartRunnable = this::start;
 
     public void stop() {
-        handler.removeCallbacksAndMessages(null);
         removeCallbacks(restartRunnable);
         for (int i = 0; i < 4; i++) {
+            if (retryRunnables[i] != null) {
+                handler.removeCallbacks(retryRunnables[i]);
+                retryRunnables[i] = null;
+            }
             if (players[i] != null) {
                 ExoPlayer player = players[i];
                 players[i] = null;
