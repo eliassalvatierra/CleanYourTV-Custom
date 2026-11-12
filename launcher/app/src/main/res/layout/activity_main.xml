@@ -418,18 +418,20 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp" />
 
-            <!-- The app rail is deliberately wide enough for two normal-sized tiles per row. -->
-            <FrameLayout
+            <!-- The app rail has four visible rows and two independent action buttons below it. -->
+            <LinearLayout
                 android:layout_width="620dp"
                 android:layout_height="match_parent"
-                android:layout_marginStart="4dp">
+                android:layout_marginStart="4dp"
+                android:orientation="vertical">
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/grid"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
                     android:paddingTop="8dp"
-                    android:paddingBottom="104dp"
+                    android:paddingBottom="4dp"
                     android:nextFocusDown="@id/btnMoreApps"
                     android:paddingStart="4dp"
                     android:paddingEnd="4dp"
@@ -443,12 +445,10 @@
                     android:id="@+id/btnMoreApps"
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
-                    android:layout_gravity="bottom"
                     android:layout_marginStart="4dp"
                     android:layout_marginEnd="4dp"
-                    android:layout_marginBottom="52dp"
+                    android:layout_marginTop="2dp"
                     android:background="@drawable/glass_panel"
-                    android:elevation="12dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
@@ -465,12 +465,11 @@
                     android:id="@+id/btnRestartInterface"
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
-                    android:layout_gravity="bottom"
                     android:layout_marginStart="4dp"
                     android:layout_marginEnd="4dp"
+                    android:layout_marginTop="4dp"
                     android:layout_marginBottom="4dp"
                     android:background="@drawable/glass_panel"
-                    android:elevation="12dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
@@ -482,7 +481,7 @@
                     android:fontFamily="@string/font_medium"
                     android:letterSpacing="0.06"
                     android:textAllCaps="true" />
-            </FrameLayout>
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
