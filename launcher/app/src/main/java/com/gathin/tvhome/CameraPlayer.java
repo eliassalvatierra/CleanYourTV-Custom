@@ -105,6 +105,10 @@ final class CameraPlayer {
             });
 
             next.attachViews(videoLayout, null, false, true);
+            // Fill each camera tile while preserving the source aspect ratio.
+            // LibVLC crops the excess image instead of leaving black side bars.
+            next.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL);
+
             Media media = new Media(libVlc, Uri.parse(url));
             media.setHWDecoderEnabled(true, false);
             media.addOption(":rtsp-tcp");
