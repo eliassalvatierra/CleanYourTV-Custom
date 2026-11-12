@@ -107,7 +107,8 @@ public final class CameraWall extends LinearLayout {
             frame.setBackgroundColor(0xFF080B10);
             TextureView texture = new TextureView(context);
             frame.addView(texture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-            frame.setFocusable(false);
+            frame.setFocusable(!fullScreen);
+            frame.setClickable(!fullScreen);
             frames[i] = frame;
             textures[i] = texture;
             final int cameraIndex = i;
@@ -221,6 +222,10 @@ public final class CameraWall extends LinearLayout {
                     updateStatus();
                     start();
                 }).show();
+    }
+
+    public boolean focusFirst() {
+        return !fullScreen && frames[0] != null && frames[0].requestFocus();
     }
 
     private void openFullscreen(int index) {
@@ -338,6 +343,10 @@ public final class CameraWall extends LinearLayout {
             frame.addView(texture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
             frames[i] = frame;
             textures[i] = texture;
+            frame.setFocusable(!fullScreen);
+            frame.setClickable(!fullScreen);
+            final int cameraIndex = i;
+            frame.setOnClickListener(v -> openFullscreen(cameraIndex));
             LayoutParams cell = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
             cell.setMargins(dp(2), dp(2), dp(2), dp(2));
             (i < 2 ? firstRow : secondRow).addView(frame, cell);
