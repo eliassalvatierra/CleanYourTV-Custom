@@ -484,13 +484,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         applyViewInputsHandler(cfg.handleViewInputs);
         settingsKeycodes = cfg.settingsKeycodes;
         settingsKeyPanel = cfg.settingsKeyPanel;
-        // Camera-first home uses a four-column app catalogue; single-row mode keeps its configured dock width.
-        COLUMNS = cfg.singleRow ? cfg.columns : 4;
+        // Camera-first home always uses a four-column, multi-row app grid.
+        COLUMNS = 4;
         animations = cfg.animations;
         advancedEffects = cfg.animations && cfg.advancedEffects;
         reducedMotion = cfg.reducedMotion;
         dockRow = cfg.dockRow;
-        singleRow = cfg.singleRow;
+        singleRow = false;
         focusOvershoot = cfg.focusOvershoot;
         festival = cfg.festival;
         festive = festival.active(LocalDate.now());
